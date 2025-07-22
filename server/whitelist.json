@@ -1,0 +1,4 @@
+{
+  "hello": "./scripts/hello.js",
+  "generate-report": "./scripts/report.js"
+}
