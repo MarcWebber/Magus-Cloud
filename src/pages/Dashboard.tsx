@@ -1,5 +1,6 @@
 // src/pages/Dashboard.tsx
 import { useEffect, useState } from 'react';
+import "../styles/Dashboard.css";
 
 type FileItem = { name: string, size: string };
 
