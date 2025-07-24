@@ -10,6 +10,7 @@ const fs_1 = __importDefault(require("fs"));
 const child_process_1 = require("child_process");
 const app = (0, express_1.default)();
 const PORT = 3000;
+const allowed_name_list = ['徐一', '陈盛'];
 app.use(express_1.default.json());
 app.use(express_1.default.static(path_1.default.join(__dirname, '../dist')));
 // 使用cors
@@ -21,7 +22,7 @@ app.post('/api/check-name', (req, res) => {
     console.log(`检查用户是否允许注册: ${realName}`);
     // const proc = spawn('pure-pw', ['authenticate', username]);
     // proc.stdin.write(password + '\n');
-    if (realName in ['徐一', '徐二', '徐三']) {
+    if (allowed_name_list.includes(realName)) {
         return res.json({ allowed: true });
     }
     else {

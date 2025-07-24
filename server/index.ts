@@ -19,7 +19,7 @@ app.post('/api/check-name', (req, res) => {
     console.log(`检查用户是否允许注册: ${realName}`);
     // const proc = spawn('pure-pw', ['authenticate', username]);
     // proc.stdin.write(password + '\n');
-    if (realName ) {
+    if (allowed_name_list.includes(realName)) {
         return res.json({allowed: true});
     }else {
         return res.json({allowed: false, error: '该真实姓名未被允许注册'});
