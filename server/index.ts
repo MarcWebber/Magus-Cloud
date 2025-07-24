@@ -40,6 +40,38 @@ app.use(express.static(path.join(__dirname, '../dist')));
 // 使用cors
 // const cors = require('cors');
 // app.use(cors());
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, error: '用户名或密码不能为空' });
+    }
+    const proc = spawn('pure-pw', ['authenticate', username]);
+
+    let stderr = '';
+    proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+    });
+
+    proc.stdin.write(password + '\n');
+    proc.stdin.end();
+
+    proc.on('close', (code) => {
+        if (code === 0) {
+            logger.info(`✅ 用户 ${username} 登录成功`);
+            res.json({ success: true });
+        } else {
+            logger.warn(`❌ 用户 ${username} 登录失败: ${stderr.trim()}`);
+            res.status(401).json({ success: false, error: '用户名或密码错误' });
+        }
+    });
+
+    proc.on('error', (err) => {
+        logger.error(`❌ 认证进程启动失败:`, err);
+        res.status(500).json({ success: false, error: '服务器内部错误' });
+    });
+});
+
 
 app.use(express.static(path.join(__dirname, '../dist')));
 app.post('/api/check-name', (req, res) => {

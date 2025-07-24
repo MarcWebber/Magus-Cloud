@@ -58,12 +58,12 @@ app.post('/api/check-name', (req, res) => {
     }
 });
 app.post('/api/register', (req, res) => {
-    const { username, password } = req.body;
+    const { realName, password } = req.body;
+    const username = (0, utils_1.toPinyin)(realName);
     const dir = `/www/wwwroot/${username}`;
-    // 打印调试信息
     logger_1.default.info(`注册用户: ${username}, 目录: ${dir}`);
     fs_1.default.mkdirSync(dir, { recursive: true });
-    fs_1.default.chownSync(dir, 1000, 1000); // 假设www用户
+    fs_1.default.chownSync(dir, 1000, 1000); //默认www用户组
     const proc = (0, child_process_1.spawn)('pure-pw', ['useradd', username, '-u', 'www', '-g', 'www', '-d', dir]);
     proc.stdin.write(password + '\n');
     proc.stdin.write(password + '\n');
@@ -87,7 +87,7 @@ app.post('/api/change-password', (req, res) => {
     });
 });
 app.get('/api/files', (req, res) => {
-    const userDir = '/www/wwwroot/chensheng'; // 可换为动态用户名
+    const userDir = '/www/wwwroot/chensheng';
     try {
         const files = fs_1.default.readdirSync(userDir).map(name => {
             const stats = fs_1.default.statSync(path_1.default.join(userDir, name));
