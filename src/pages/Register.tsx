@@ -1,5 +1,5 @@
 // src/pages/Register.tsx
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import "../styles/Register.css";
 
 export default function Register() {
@@ -7,6 +7,7 @@ export default function Register() {
     const [realName, setRealName] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
@@ -18,8 +19,8 @@ export default function Register() {
         // 检查真实姓名是否合法
         const nameCheckRes = await fetch('/api/check-name', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ realName })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({realName})
         });
         const nameCheckData = await nameCheckRes.json();
         console.log(nameCheckData)
@@ -31,8 +32,8 @@ export default function Register() {
         // 发起注册请求
         const registerRes = await fetch('/api/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, realName, password })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, realName, password})
         });
         const data = await registerRes.json();
 

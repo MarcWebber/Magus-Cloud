@@ -6,6 +6,7 @@ import {spawn} from 'child_process';
 
 const app = express();
 const PORT = 3000;
+const allowed_name_list = ['徐一','陈盛']
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
 // 使用cors
@@ -14,12 +15,14 @@ app.use(express.static(path.join(__dirname, '../dist')));
 
 app.use(express.static(path.join(__dirname, '../dist')));
 app.post('/api/check-name', (req, res) => {
-    const {username, password} = req.body;
-    console.log(`检查用户: ${username}, 密码: ${password}`);
+    const realName =`${req.body.realName}`;
+    console.log(`检查用户是否允许注册: ${realName}`);
     // const proc = spawn('pure-pw', ['authenticate', username]);
     // proc.stdin.write(password + '\n');
-    if (username in ['徐一', '徐二', '徐三']) {
+    if (realName ) {
         return res.json({allowed: true});
+    }else {
+        return res.json({allowed: false, error: '该真实姓名未被允许注册'});
     }
 });
 
@@ -28,7 +31,6 @@ app.post('/api/register', (req, res) => {
     const dir = `/www/wwwroot/${username}`;
     // 打印调试信息
     console.log(`注册用户: ${username}, 目录: ${dir}`);
-    return
     fs.mkdirSync(dir, {recursive: true});
     fs.chownSync(dir, 1000, 1000); // 假设www用户
     const proc = spawn('pure-pw', ['useradd', username, '-u', 'www', '-g', 'www', '-d', dir]);

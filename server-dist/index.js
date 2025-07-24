@@ -17,12 +17,15 @@ app.use(express_1.default.static(path_1.default.join(__dirname, '../dist')));
 // app.use(cors());
 app.use(express_1.default.static(path_1.default.join(__dirname, '../dist')));
 app.post('/api/check-name', (req, res) => {
-    const { username, password } = req.body;
-    console.log(`检查用户: ${username}, 密码: ${password}`);
+    const realName = `${req.body.realName}`;
+    console.log(`检查用户是否允许注册: ${realName}`);
     // const proc = spawn('pure-pw', ['authenticate', username]);
     // proc.stdin.write(password + '\n');
-    if (username in ['徐一', '徐二', '徐三']) {
+    if (realName in ['徐一', '徐二', '徐三']) {
         return res.json({ allowed: true });
+    }
+    else {
+        return res.json({ allowed: false, error: '该真实姓名未被允许注册' });
     }
 });
 app.post('/api/register', (req, res) => {
@@ -30,7 +33,6 @@ app.post('/api/register', (req, res) => {
     const dir = `/www/wwwroot/${username}`;
     // 打印调试信息
     console.log(`注册用户: ${username}, 目录: ${dir}`);
-    return;
     fs_1.default.mkdirSync(dir, { recursive: true });
     fs_1.default.chownSync(dir, 1000, 1000); // 假设www用户
     const proc = (0, child_process_1.spawn)('pure-pw', ['useradd', username, '-u', 'www', '-g', 'www', '-d', dir]);
