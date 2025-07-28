@@ -1,7 +1,21 @@
 import { spawn } from 'child_process';
 import logger from '../logger';
 import { allowed_name_list, current_name_set } from '../constants';
+import {error} from "winston";
 
+const isDev = process.env.NODE_ENV === 'development';
+export function DevEnvLoadCurrentPureUsers(): Promise<void> {
+    // 返回测试用户test
+    if (isDev) {
+        logger.info('开发模式，test用户已加载');
+        current_name_set.add('test');
+        // 可注册用户为register
+        logger.info('开发模式，允许注册用户register');
+        allowed_name_list.push('register');
+        return Promise.resolve();
+    }
+    error('❌ 非开发环境调用了开发环境的代码，请检查代码逻辑');
+}
 export function loadCurrentPureUsers(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         const proc = spawn('pure-pw', ['list']);
