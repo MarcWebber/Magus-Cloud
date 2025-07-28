@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.0.15",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
@@ -23,6 +24,7 @@
   },
   "dependencies": {
     "express": "^5.1.0",
+    "multer": "^2.0.2",
     "pinyin": "^4.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
