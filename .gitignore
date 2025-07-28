@@ -27,3 +27,5 @@ dist-ssr
 /server-dist
 # 测试脚本
 /tests
+# 日志
+/logs

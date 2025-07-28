@@ -52,13 +52,14 @@ router.get('/quick-download', (req: Request, res: Response) => {
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: '文件不存在' });
     }
-
     logger.info(`✅ 下载文件: ${filePath}`);
-    res.download(filePath);
+
 
     // 给出提示，告知用户这是一个后门接口，不建议广泛使用
     res.setHeader('X-Info', '这是一个后门接口，不建议广泛使用');
     res.setHeader('X-Warning', '此接口可能在未来版本中被移除，请谨慎使用');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.download(filePath);
     res.json({ message: '下载已完成，这是一个后门接口，建议通过网页端下载，这个命令仅限于不能使用图形化界面的环境使用...' });
 
 });

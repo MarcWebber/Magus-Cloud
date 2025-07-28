@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "commonjs",
   "scripts": {
-    "dev": "vite",
     "build": "tsc && vite build",
     "build:server": "npx tsc -p tsconfig.server.json",
     "preview": "vite preview",
     "start": "npm run build && npm run build:server && node server-dist/index.js",
-    "restart": "pm run start"
+    "dev": "cross-env NODE_ENV=development npm run build && cross-env NODE_ENV=development npm run build:server && cross-env NODE_ENV=development node server-dist/index.js",
+    "restart": "npm run start"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
@@ -18,6 +18,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/react-router-dom": "^5.3.3",
+    "cross-env": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
     "vite": "^7.0.4"

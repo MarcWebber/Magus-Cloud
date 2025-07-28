@@ -16,10 +16,21 @@ app.use('/api', authRoutes);
 app.use('/api', fileRoutes);
 app.use('/api/backdoor', backdoorRoutes);
 
-loadCurrentPureUsers().then(() => {
+const isDev = process.env.NODE_ENV === 'development';
+
+if (isDev) {
+    console.log('[DEV] 开发模式检测到，跳过用户加载');
+    logger.info('[DEV] 开发模式启动，跳过用户加载');
     app.listen(PORT, () => {
-        logger.info(`✅ Server running at http://localhost:${PORT}`);
+        logger.info(`Server running at http://localhost:${PORT}`);
     });
-}).catch(err => {
-    logger.error('❌ 启动失败:', err);
-});
+} else {
+    console.log('[PROD] 生产模式检测到，加载当前用户中...');
+    loadCurrentPureUsers().then(() => {
+        app.listen(PORT, () => {
+            logger.info(`Server running at http://localhost:${PORT}`);
+        });
+    }).catch(err => {
+        logger.error('Error 启动失败:', err);
+    });
+}
