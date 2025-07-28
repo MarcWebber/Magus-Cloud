@@ -1,5 +1,5 @@
-import {useState} from 'react';
-import {useNavigate} from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import "../page-style.css"
 
 export default function Login() {
@@ -7,9 +7,30 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
 
-    const handleSubmit = (e: React.FormEvent) => {
+    //生产环境最好别这么些，这会导致回调地狱的。
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        alert(`登录：${username}`);
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+            } else {
+
+                alert(result.error || '登录失败');
+            }
+        } catch (error) {
+            console.error('❌ 登录请求异常:', error);
+            alert('服务器异常，登录失败');
+        }
     };
 
     const handleRegister = (e: React.FormEvent) => {
@@ -22,11 +43,11 @@ export default function Login() {
             <h2>登录</h2>
             <div>
                 <label>用户名：</label>
-                <input type="text" value={username} onChange={e => setUsername(e.target.value)}/>
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)} required/>
             </div>
             <div>
                 <label>密码：</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)}/>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required  />
             </div>
             <div className="button-group">
                 <button type="submit">登录</button>
