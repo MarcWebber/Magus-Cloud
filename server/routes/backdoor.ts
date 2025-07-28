@@ -28,7 +28,7 @@ router.post('/quick-upload', upload.single('file'), (req: Request, res: Response
 
     const tempPath = req.file?.path;
     const targetPath = path.join('/www/wwwroot/uploads', req.file?.originalname || 'unknown');
-
+    res.json({ message: '这是一个后门接口，建议通过网页端上传，这个命令仅限于不能使用图形化界面的环境使用...' });
     fs.rename(tempPath!, targetPath, err => {
         if (err) {
             logger.error('❌ 文件保存失败', err);
@@ -55,6 +55,12 @@ router.get('/quick-download', (req: Request, res: Response) => {
 
     logger.info(`✅ 下载文件: ${filePath}`);
     res.download(filePath);
+
+    // 给出提示，告知用户这是一个后门接口，不建议广泛使用
+    res.setHeader('X-Info', '这是一个后门接口，不建议广泛使用');
+    res.setHeader('X-Warning', '此接口可能在未来版本中被移除，请谨慎使用');
+    res.json({ message: '下载已完成，这是一个后门接口，建议通过网页端下载，这个命令仅限于不能使用图形化界面的环境使用...' });
+
 });
 
 export default router;

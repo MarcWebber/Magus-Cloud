@@ -25,3 +25,5 @@ dist-ssr
 
 # 编译文件
 /server-dist
+# 测试脚本
+/tests
