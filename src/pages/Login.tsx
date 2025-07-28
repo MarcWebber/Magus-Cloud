@@ -23,8 +23,9 @@ export default function Login() {
             const result = await response.json();
 
             if (response.ok && result.success) {
+                e.preventDefault();
+                navigate('/dashboard');
             } else {
-
                 alert(result.error || '登录失败');
             }
         } catch (error) {

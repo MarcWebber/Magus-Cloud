@@ -20,9 +20,13 @@ app.use('/api/backdoor', backdoor_1.default);
 const isDev = process.env.NODE_ENV === 'development';
 if (isDev) {
     console.log('[DEV] 开发模式检测到，跳过用户加载');
-    logger_1.default.info('[DEV] 开发模式启动，跳过用户加载');
-    app.listen(PORT, () => {
-        logger_1.default.info(`Server running at http://localhost:${PORT}`);
+    logger_1.default.info('[DEV] 开发模式启动,测试用户加载中');
+    (0, loadUsers_1.DevEnvLoadCurrentPureUsers)().then(() => {
+        app.listen(PORT, () => {
+            logger_1.default.info(`Server running at http://localhost:${PORT}`);
+        });
+    }).catch(err => {
+        logger_1.default.error('Error 开发模式启动失败:', err);
     });
 }
 else {
@@ -32,6 +36,6 @@ else {
             logger_1.default.info(`Server running at http://localhost:${PORT}`);
         });
     }).catch(err => {
-        logger_1.default.error('Error 启动失败:', err);
+        logger_1.default.error('Error 部署模式启动失败:', err);
     });
 }

@@ -37,3 +37,17 @@ export async function changePassword(username: string, newPassword: string): Pro
         });
     });
 }
+
+
+export async function loginUser(username: string, password: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const proc = spawn('pure-pw', ['login', username]);
+        proc.stdin.write(password + '\n');
+        proc.stdin.end();
+
+        proc.on('close', (code) => {
+            if (code !== 0) return reject(new Error('登录失败'));
+            resolve('登录成功');
+        });
+    });
+}

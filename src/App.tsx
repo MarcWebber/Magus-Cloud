@@ -18,7 +18,7 @@ export default function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                {/*<Route path="*" element={<div>404 页面未找到</div>} />*/}
+                <Route path="*" element={<div>404 页面未找到</div>} />
             </Routes>
         </BrowserRouter>
     );

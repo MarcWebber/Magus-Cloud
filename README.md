@@ -21,3 +21,8 @@ npm run start # prod环境
 npm run dev # dev环境
 ```
 dev环境会跳过部分初始化内容，以此来保证windows下也能正确启动，可用于快速调试
+
+# 开发环境及用户
+- 开发环境默认用户test / test
+- 注册接口测试可使用 register 用户
+- 磁盘用量展示仅仅为测试数据，用于调试UI

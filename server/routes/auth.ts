@@ -40,8 +40,10 @@ router.post('/change-password', async (req, res) => {
 router.post('/login', (req, res) => {
     const { username, password } = req.body;
     if (current_name_set.has(username)) {
-        res.json({ message: '登录成功' });
+        logger.info(`用户 ${username} 登录成功`);
+        res.json({ message: '登录成功' , success: true});
     } else {
+        logger.warn(`用户 ${username} 登录失败: 用户名不存在`);
         res.status(401).json({ error: '用户名不存在' });
     }
 });
