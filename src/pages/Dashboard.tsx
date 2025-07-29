@@ -50,22 +50,22 @@ function pageDataToTreeData(files: FileItem[]){
     //     ],
     //   },
     // ];
-    files.forEach(file => {
-        const parts = file.name.split('/');
-        let currentLevel = tree;
-
-        parts.forEach((part, index) => {
-            let node = currentLevel.find(n => n.name === part);
-            if (!node) {
-                node = { id: `${parts.slice(0, index + 1).join('-')}`, name: part, children: [] };
-                currentLevel.push(node);
-            }
-            if (index === parts.length - 1) {
-            }
-            currentLevel = node.children!;
-        });
-    })
-    return tree;
+    // files.forEach(file => {
+    //     const parts = file.name.split('/');
+    //     let currentLevel = tree;
+    //
+    //     parts.forEach((part, index) => {
+    //         let node = currentLevel.find(n => n.name === part);
+    //         if (!node) {
+    //             node = { id: `${parts.slice(0, index + 1).join('-')}`, name: part, children: [] };
+    //             currentLevel.push(node);
+    //         }
+    //         if (index === parts.length - 1) {
+    //         }
+    //         currentLevel = node.children!;
+    //     });
+    // })
+    // return tree;
 }
 
 const colorPalette = [
@@ -85,10 +85,10 @@ export default function Dashboard() {
                 setFiles(data.files || []);
                 setUsage(data.usage || '');
             }).then(
-                () => {
-                    const treeData = pageDataToTreeData(files);
-                    setData(treeData);
-                }
+                // () => {
+                //     const treeData = pageDataToTreeData(files);
+                //     setData(treeData);
+                // }
             );
     }, []);
 
@@ -121,12 +121,12 @@ export default function Dashboard() {
                     </li>
                 ))}
             </ul>
-            <p>文件列表</p>
-            <Tree
-                data={data}
-                openByDefault={true}
-                onSelect={(node) => console.log(node)}
-            />
+            {/*<p>文件列表</p>*/}
+            {/*<Tree*/}
+            {/*    data={data}*/}
+            {/*    openByDefault={true}*/}
+            {/*    onSelect={(node) => console.log(node)}*/}
+            {/*/>*/}
         </div>
     );
 }
