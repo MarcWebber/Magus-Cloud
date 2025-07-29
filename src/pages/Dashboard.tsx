@@ -1,10 +1,11 @@
 // src/pages/Dashboard.tsx
 import { useEffect, useState } from 'react';
 import "../styles/Dashboard.css";
-import {Tree} from "react-arborist";
+import { NodeApi, Tree } from "react-arborist";
+import type { FileTreeNode } from "../components/file_tree/FileTree.tsx";
+import FileTree from "../components/file_tree/FileTree.tsx";
 
 type FileItem = { name: string, size: string };
-type TreeNode = { id: string, name: string, children?: TreeNode[] };
 
 function parseSize(sizeStr: string): number {
     const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
@@ -20,52 +21,30 @@ function parseSize(sizeStr: string): number {
     return num * (unitMap[unit.toUpperCase()] || 1);
 }
 
-function pageDataToTreeData(files: FileItem[]){
-    const tree: TreeNode[] = [];
-    //         files: [
-    //             { name: 'report.pdf', size: '234567 bytes' },
-    //             { name: 'data.csv', size: '54321 bytes' },
-    //             { name: 'image.png', size: '123456 bytes' },
-    //         ],
-    //         usage: '395K'
-    // const data = [
-    //   { id: "1", name: "Unread" },
-    //   { id: "2", name: "Threads" },
-    //   {
-    //     id: "3",
-    //     name: "Chat Rooms",
-    //     children: [
-    //       { id: "c1", name: "General" },
-    //       { id: "c2", name: "Random" },
-    //       { id: "c3", name: "Open Source Projects" },
-    //     ],
-    //   },
-    //   {
-    //     id: "4",
-    //     name: "Direct Messages",
-    //     children: [
-    //       { id: "d1", name: "Alice" },
-    //       { id: "d2", name: "Bob" },
-    //       { id: "d3", name: "Charlie" },
-    //     ],
-    //   },
-    // ];
-    // files.forEach(file => {
-    //     const parts = file.name.split('/');
-    //     let currentLevel = tree;
-    //
-    //     parts.forEach((part, index) => {
-    //         let node = currentLevel.find(n => n.name === part);
-    //         if (!node) {
-    //             node = { id: `${parts.slice(0, index + 1).join('-')}`, name: part, children: [] };
-    //             currentLevel.push(node);
-    //         }
-    //         if (index === parts.length - 1) {
-    //         }
-    //         currentLevel = node.children!;
-    //     });
-    // })
-    // return tree;
+function pageDataToTreeData(files: FileItem[]) {
+    const tree: FileTreeNode[] = [];
+
+    files.forEach(file => {
+        const parts = file.name.split('/');
+        let currentLevel = tree;
+
+        parts.forEach((part, index) => {
+            let node = currentLevel.find(n => n.name === part);
+            if (!node) {
+                node = {
+                    id: `${parts.slice(0, index + 1).join('-')}`,
+                    name: part,
+                    children: [],
+                    type: index === parts.length - 1 ? 'file' : 'folder'
+                };
+                currentLevel.push(node);
+            }
+            if (index === parts.length - 1) {
+            }
+            currentLevel = node.children!;
+        });
+    })
+    return tree;
 }
 
 const colorPalette = [
@@ -76,11 +55,13 @@ const colorPalette = [
 export default function Dashboard() {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [usage, setUsage] = useState('');
-    const [data, setData] = useState<TreeNode[]>([]);
+
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
+
+    const [data, setData] = useState<FileTreeNode[]>([]);
 
 
     useEffect(() => {
@@ -88,14 +69,9 @@ export default function Dashboard() {
             .then(res => res.json())
             .then(data => {
                 setFiles(data.files || []);
-                setUsage(data.usage || '');
-            }).then(
-                // () => {
-                //     const treeData = pageDataToTreeData(files);
-                //     setData(treeData);
-                // }
-            );
-    }, []);
+                setUsage(data.usage || '')
+            })
+    }, [])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -149,6 +125,10 @@ export default function Dashboard() {
     };
 
 
+    useEffect(() => {
+        console.log(files);
+        setData(pageDataToTreeData(files));
+    }, [files]);
 
     const totalSize = files.reduce((sum, f) => sum + parseSize(f.size), 0);
     const segments = files.map((f, i) => ({
@@ -179,13 +159,6 @@ export default function Dashboard() {
                     </li>
                 ))}
             </ul>
-            {/*<p>文件列表</p>*/}
-            {/*<Tree*/}
-            {/*    data={data}*/}
-            {/*    openByDefault={true}*/}
-            {/*    onSelect={(node) => console.log(node)}*/}
-            {/*/>*/}
-            {/* 上传区域 */}
             <div className="upload-section">
                 <input
                     type="file"
@@ -210,14 +183,18 @@ export default function Dashboard() {
                     <div className="upload-error">{uploadError}</div>
                 )}
                 {uploading && (
-    <div className="upload-progress-bar">
-      <div
-        className="upload-progress-fill"
-        style={{ width: `${uploadProgress}%` }}
-      ></div>
-    </div>
-  )}
+                    <div className="upload-progress-bar">
+                        <div
+                            className="upload-progress-fill"
+                            style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                    </div>
+                )}
             </div>
-        </div>
+            <div className="file-tree">
+                <FileTree data={data} />
+            </div>
+
+        </div >
     );
 }

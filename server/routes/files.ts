@@ -33,11 +33,15 @@ router.get('/files', (req, res) => {
 function DevEnvGetFile() {
     return {
         files: [
-            { name: 'report.pdf', size: '234567 bytes' },
-            { name: 'data.csv', size: '54321 bytes' },
-            { name: 'image.png', size: '123456 bytes' },
+            { name: 'docs/report.pdf', size: '234567 bytes' },
+            { name: 'docs/specs/design.docx', size: '87654 bytes' },
+            { name: 'data/raw/data1.csv', size: '54321 bytes' },
+            { name: 'data/processed/results.json', size: '66552 bytes' },
+            { name: 'images/logo.png', size: '123456 bytes' },
+            { name: 'archive/logs.zip', size: '88234 bytes' },
+            { name: 'README.md', size: '1024 bytes' },
         ],
-        usage: '395K'
+        usage: '512K'
     };
 }
 
