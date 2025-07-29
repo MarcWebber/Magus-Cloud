@@ -77,6 +77,11 @@ export default function Dashboard() {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [usage, setUsage] = useState('');
     const [data, setData] = useState<TreeNode[]>([]);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    const [uploadProgress, setUploadProgress] = useState(0);
+
 
     useEffect(() => {
         fetch('/api/files')
@@ -91,6 +96,59 @@ export default function Dashboard() {
                 // }
             );
     }, []);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setSelectedFile(e.target.files[0]);
+            setUploadError('');
+        }
+    };
+
+    const handleUpload = () => {
+        if (!selectedFile) return;
+
+        setUploading(true);
+        setUploadError('');
+        setUploadProgress(0);
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percent = Math.round((event.loaded / event.total) * 100);
+                setUploadProgress(percent);
+            }
+        };
+
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                fetch('/api/files')
+                    .then(res => res.json())
+                    .then(data => {
+                        setFiles(data.files || []);
+                        setUsage(data.usage || '');
+                    });
+                setSelectedFile(null);
+                setUploadProgress(0);
+            } else {
+                setUploadError(`上传失败（状态码：${xhr.status}）`);
+            }
+            setUploading(false);
+        };
+
+        xhr.onerror = () => {
+            setUploadError('上传出错，请重试');
+            setUploading(false);
+        };
+
+        xhr.open('POST', '/api/upload', true);
+        xhr.send(formData);
+    };
+
+
 
     const totalSize = files.reduce((sum, f) => sum + parseSize(f.size), 0);
     const segments = files.map((f, i) => ({
@@ -127,6 +185,39 @@ export default function Dashboard() {
             {/*    openByDefault={true}*/}
             {/*    onSelect={(node) => console.log(node)}*/}
             {/*/>*/}
+            {/* 上传区域 */}
+            <div className="upload-section">
+                <input
+                    type="file"
+                    id="file-upload"
+                    style={{ display: 'none' }}
+                    onChange={handleFileChange}
+                />
+                <label htmlFor="file-upload" className="upload-btn">
+                    {uploading ? '上传中...' : '选择文件'}
+                </label>
+                {selectedFile && (
+                    <span className="selected-file">{selectedFile.name}</span>
+                )}
+                <button
+                    className="upload-btn"
+                    onClick={handleUpload}
+                    disabled={!selectedFile || uploading}
+                >
+                    {uploading ? '上传中...' : '开始上传'}
+                </button>
+                {uploadError && (
+                    <div className="upload-error">{uploadError}</div>
+                )}
+                {uploading && (
+    <div className="upload-progress-bar">
+      <div
+        className="upload-progress-fill"
+        style={{ width: `${uploadProgress}%` }}
+      ></div>
+    </div>
+  )}
+            </div>
         </div>
     );
 }

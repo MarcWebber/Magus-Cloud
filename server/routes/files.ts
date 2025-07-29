@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import logger from "../logger";
+import multer from 'multer';
 
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
@@ -39,5 +40,27 @@ function DevEnvGetFile() {
         usage: '395K'
     };
 }
+
+// 定义文件存储位置
+const uploadDir = '/www/wwwroot/chensheng';
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const timestamp = Date.now();
+        const uniqueName = `${timestamp}-${file.originalname}`;
+        cb(null, uniqueName);
+    },
+});
+const upload = multer({ storage });
+
+router.post('/upload', upload.single('file'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: '未接收到文件' });
+    }
+    logger.info(`上传成功: ${req.file.originalname}`);
+    res.json({ message: '上传成功', file: req.file.filename });
+});
 
 export default router;
