@@ -17,6 +17,10 @@ app.use(express_1.default.static(path_1.default.join(__dirname, '../dist')));
 app.use('/api', auth_1.default);
 app.use('/api', files_1.default);
 app.use('/api/backdoor', backdoor_1.default);
+// fallback路由
+app.get('*', (req, res) => {
+    res.sendFile(path_1.default.join(__dirname, '../dist/index.html'));
+});
 const isDev = process.env.NODE_ENV === 'development';
 if (isDev) {
     console.log('[DEV] 开发模式检测到，跳过用户加载');

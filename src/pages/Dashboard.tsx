@@ -1,6 +1,7 @@
 // src/pages/Dashboard.tsx
 import { useEffect, useState } from 'react';
 import "../styles/Dashboard.css";
+import {Tree} from "react-arborist";
 
 type FileItem = { name: string, size: string };
 type TreeNode = { id: string, name: string, children?: TreeNode[] };
@@ -20,7 +21,7 @@ function parseSize(sizeStr: string): number {
 }
 
 function pageDataToTreeData(files: FileItem[]){
-    const tree: { name: string, children?: any[] }[] = [];
+    const tree: TreeNode[] = [];
     //         files: [
     //             { name: 'report.pdf', size: '234567 bytes' },
     //             { name: 'data.csv', size: '54321 bytes' },
@@ -56,7 +57,7 @@ function pageDataToTreeData(files: FileItem[]){
         parts.forEach((part, index) => {
             let node = currentLevel.find(n => n.name === part);
             if (!node) {
-                node = { name: part, children: [] };
+                node = { id: `${parts.slice(0, index + 1).join('-')}`, name: part, children: [] };
                 currentLevel.push(node);
             }
             if (index === parts.length - 1) {
@@ -64,7 +65,7 @@ function pageDataToTreeData(files: FileItem[]){
             currentLevel = node.children!;
         });
     })
-
+    return tree;
 }
 
 const colorPalette = [
@@ -75,6 +76,7 @@ const colorPalette = [
 export default function Dashboard() {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [usage, setUsage] = useState('');
+    const [data, setData] = useState<TreeNode[]>([]);
 
     useEffect(() => {
         fetch('/api/files')
@@ -82,7 +84,12 @@ export default function Dashboard() {
             .then(data => {
                 setFiles(data.files || []);
                 setUsage(data.usage || '');
-            });
+            }).then(
+                () => {
+                    const treeData = pageDataToTreeData(files);
+                    setData(treeData);
+                }
+            );
     }, []);
 
     const totalSize = files.reduce((sum, f) => sum + parseSize(f.size), 0);
@@ -114,6 +121,12 @@ export default function Dashboard() {
                     </li>
                 ))}
             </ul>
+            <p>文件列表</p>
+            <Tree
+                data={data}
+                openByDefault={true}
+                onSelect={(node) => console.log(node)}
+            />
         </div>
     );
 }
