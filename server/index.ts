@@ -16,7 +16,7 @@ app.use('/api', authRoutes);
 app.use('/api', fileRoutes);
 app.use('/api/backdoor', backdoorRoutes);
 // fallback路由
-app.get('*', (req, res) => {
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
