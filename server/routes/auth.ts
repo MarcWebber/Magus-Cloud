@@ -39,6 +39,7 @@ router.post('/change-password', async (req, res) => {
 // 登录
 router.post('/login', (req, res) => {
     const { username, password } = req.body;
+    logger.info(`用户尝试登录: ${username},使用密码: ${password ? '已提供' : '未提供'}`);
     if (current_name_set.has(username)) {
         logger.info(`用户 ${username} 登录成功`);
         res.json({ message: '登录成功' , success: true});

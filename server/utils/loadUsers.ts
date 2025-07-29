@@ -22,6 +22,7 @@ export function loadCurrentPureUsers(): Promise<void> {
         let output = '';
 
         proc.stdout.on('data', data => output += data.toString());
+        logger.info('正在执行 pure-pw list 命令...');
 
         proc.on('close', code => {
             if (code !== 0) {

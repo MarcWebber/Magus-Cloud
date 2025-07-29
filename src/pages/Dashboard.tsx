@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import "../styles/Dashboard.css";
 
 type FileItem = { name: string, size: string };
+type TreeNode = { id: string, name: string, children?: TreeNode[] };
 
 function parseSize(sizeStr: string): number {
     const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
@@ -16,6 +17,54 @@ function parseSize(sizeStr: string): number {
         GB: 1024 ** 3,
     };
     return num * (unitMap[unit.toUpperCase()] || 1);
+}
+
+function pageDataToTreeData(files: FileItem[]){
+    const tree: { name: string, children?: any[] }[] = [];
+    //         files: [
+    //             { name: 'report.pdf', size: '234567 bytes' },
+    //             { name: 'data.csv', size: '54321 bytes' },
+    //             { name: 'image.png', size: '123456 bytes' },
+    //         ],
+    //         usage: '395K'
+    // const data = [
+    //   { id: "1", name: "Unread" },
+    //   { id: "2", name: "Threads" },
+    //   {
+    //     id: "3",
+    //     name: "Chat Rooms",
+    //     children: [
+    //       { id: "c1", name: "General" },
+    //       { id: "c2", name: "Random" },
+    //       { id: "c3", name: "Open Source Projects" },
+    //     ],
+    //   },
+    //   {
+    //     id: "4",
+    //     name: "Direct Messages",
+    //     children: [
+    //       { id: "d1", name: "Alice" },
+    //       { id: "d2", name: "Bob" },
+    //       { id: "d3", name: "Charlie" },
+    //     ],
+    //   },
+    // ];
+    files.forEach(file => {
+        const parts = file.name.split('/');
+        let currentLevel = tree;
+
+        parts.forEach((part, index) => {
+            let node = currentLevel.find(n => n.name === part);
+            if (!node) {
+                node = { name: part, children: [] };
+                currentLevel.push(node);
+            }
+            if (index === parts.length - 1) {
+            }
+            currentLevel = node.children!;
+        });
+    })
+
 }
 
 const colorPalette = [
