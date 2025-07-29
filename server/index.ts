@@ -15,6 +15,10 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/api', authRoutes);
 app.use('/api', fileRoutes);
 app.use('/api/backdoor', backdoorRoutes);
+// fallback路由
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
 
 const isDev = process.env.NODE_ENV === 'development';
 
