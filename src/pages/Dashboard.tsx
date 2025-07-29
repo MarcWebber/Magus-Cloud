@@ -1,10 +1,11 @@
 // src/pages/Dashboard.tsx
-import { useEffect, useState } from 'react';
+import {useEffect, useState} from 'react';
 import "../styles/Dashboard.css";
-import {Tree} from "react-arborist";
+import {NodeApi, Tree} from "react-arborist";
+import type {FileTreeNode} from "../components/file_tree/FileTree.tsx";
+import FileTree from "../components/file_tree/FileTree.tsx";
 
 type FileItem = { name: string, size: string };
-type TreeNode = { id: string, name: string, children?: TreeNode[] };
 
 function parseSize(sizeStr: string): number {
     const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
@@ -20,8 +21,8 @@ function parseSize(sizeStr: string): number {
     return num * (unitMap[unit.toUpperCase()] || 1);
 }
 
-function pageDataToTreeData(files: FileItem[]){
-    const tree: TreeNode[] = [];
+function pageDataToTreeData(files: FileItem[]) {
+    const tree: FileTreeNode[] = [];
     //         files: [
     //             { name: 'report.pdf', size: '234567 bytes' },
     //             { name: 'data.csv', size: '54321 bytes' },
@@ -57,7 +58,12 @@ function pageDataToTreeData(files: FileItem[]){
         parts.forEach((part, index) => {
             let node = currentLevel.find(n => n.name === part);
             if (!node) {
-                node = { id: `${parts.slice(0, index + 1).join('-')}`, name: part, children: [] };
+                node = {
+                    id: `${parts.slice(0, index + 1).join('-')}`,
+                    name: part,
+                    children: [],
+                    type: index === parts.length - 1 ? 'file' : 'folder'
+                };
                 currentLevel.push(node);
             }
             if (index === parts.length - 1) {
@@ -76,7 +82,8 @@ const colorPalette = [
 export default function Dashboard() {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [usage, setUsage] = useState('');
-    const [data, setData] = useState<TreeNode[]>([]);
+    const [data, setData] = useState<FileTreeNode[]>([]);
+
 
     useEffect(() => {
         fetch('/api/files')
@@ -84,13 +91,14 @@ export default function Dashboard() {
             .then(data => {
                 setFiles(data.files || []);
                 setUsage(data.usage || '');
-            }).then(
-                () => {
-                    const treeData = pageDataToTreeData(files);
-                    setData(treeData);
-                }
-            );
+                console.log(data.files)
+            })
     }, []);
+
+    useEffect(() => {
+        console.log(files);
+        setData(pageDataToTreeData(files));
+    }, [files]);
 
     const totalSize = files.reduce((sum, f) => sum + parseSize(f.size), 0);
     const segments = files.map((f, i) => ({
@@ -108,7 +116,7 @@ export default function Dashboard() {
                     <div
                         key={idx}
                         className="storage-segment"
-                        style={{ width: `${seg.percent}%`, backgroundColor: seg.color }}
+                        style={{width: `${seg.percent}%`, backgroundColor: seg.color}}
                         title={`${seg.name}: ${seg.percent.toFixed(1)}%`}
                     />
                 ))}
@@ -116,17 +124,16 @@ export default function Dashboard() {
             <ul className="storage-legend">
                 {segments.map((seg, idx) => (
                     <li key={idx}>
-                        <span className="legend-dot" style={{ backgroundColor: seg.color }}></span>
+                        <span className="legend-dot" style={{backgroundColor: seg.color}}></span>
                         {seg.name} - {seg.percent.toFixed(1)}%
                     </li>
                 ))}
             </ul>
-            <p>文件列表</p>
-            <Tree
-                data={data}
-                openByDefault={true}
-                onSelect={(node) => console.log(node)}
-            />
+
+            <div className="file-tree">
+                <FileTree data={data}/>
+            </div>
+
         </div>
     );
 }
