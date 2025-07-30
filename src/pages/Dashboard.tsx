@@ -1,7 +1,6 @@
 // src/pages/Dashboard.tsx
-import {use, useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import "../styles/Dashboard.css";
-import {NodeApi, Tree} from "react-arborist";
 import type {FileTreeNode} from "../components/file_tree/FileTree.tsx";
 import FileTree from "../components/file_tree/FileTree.tsx";
 
@@ -208,7 +207,7 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
-            <div className="file-tree">
+            <div className="file-tree-container">
                 <FileTree data={data}/>
             </div>
 

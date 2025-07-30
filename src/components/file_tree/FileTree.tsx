@@ -43,6 +43,13 @@ export default function FileTree({
             tree.closeAll();
         }
     };
+    function onClickDelete(node: NodeApi<FileTreeNode>) {
+
+    }
+
+    function onClickDownload(node: NodeApi<FileTreeNode>) {
+
+    }
     return (
         <div className="file-tree-container">
             <div className="tree-actions mb-2 flex gap-2">
@@ -133,7 +140,7 @@ function CustomNode({
             onDoubleClick={handleDoubleClick}
         >
             <span>{getIcon(node.data.name)}</span>
-            <span>{node.data.name}</span>
+            <span className={Styles['node-name']}>{node.data.name}</span>
             {/* 文件大小 */}
             <div className={Styles['node-size']}>
                 {node.data.size || '--'}

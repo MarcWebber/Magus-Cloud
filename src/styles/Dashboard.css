@@ -1,7 +1,12 @@
 .dashboard-container {
-    max-width: 700px;
+    max-width: 1920px;
+    min-width: 800px;
     margin: auto;
     font-family: sans-serif;
+}
+
+.file-tree-container {
+    font-size: 14px;
 }
 
 .storage-bar {
