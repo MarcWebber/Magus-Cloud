@@ -16,6 +16,8 @@
 
 .tree-node-item {
     display: flex;
+    min-width: 250px;
+    max-width: 400px;
 }
 /* hover样式，hover之后颜色变蓝，并添加下划线*/
 .tree-node-item:hover {

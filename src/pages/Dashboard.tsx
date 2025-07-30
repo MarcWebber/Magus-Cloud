@@ -1,8 +1,8 @@
 // src/pages/Dashboard.tsx
-import { useEffect, useState } from 'react';
+import {use, useEffect, useState} from 'react';
 import "../styles/Dashboard.css";
-import { NodeApi, Tree } from "react-arborist";
-import type { FileTreeNode } from "../components/file_tree/FileTree.tsx";
+import {NodeApi, Tree} from "react-arborist";
+import type {FileTreeNode} from "../components/file_tree/FileTree.tsx";
 import FileTree from "../components/file_tree/FileTree.tsx";
 
 type FileItem = { name: string, size: string };
@@ -47,6 +47,7 @@ function pageDataToTreeData(files: FileItem[]) {
     return tree;
 }
 
+
 const colorPalette = [
     '#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336',
     '#00bcd4', '#8bc34a', '#ffc107', '#e91e63', '#3f51b5'
@@ -54,6 +55,7 @@ const colorPalette = [
 
 export default function Dashboard() {
     const [files, setFiles] = useState<FileItem[]>([]);
+    const [filesByType, setFilesByType] = useState<Record<string, number>>({});
     const [usage, setUsage] = useState('');
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -64,6 +66,7 @@ export default function Dashboard() {
     const [data, setData] = useState<FileTreeNode[]>([]);
 
 
+    // 三个useEffect，一个用于获取文件列表和磁盘用量，一个更新文件树，另一个用于按照文件类型计算总站用
     useEffect(() => {
         fetch('/api/files')
             .then(res => res.json())
@@ -72,9 +75,26 @@ export default function Dashboard() {
                 setUsage(data.usage || '')
             })
     }, [])
+    useEffect(() => {
+        console.log(files);
+        setData(pageDataToTreeData(files));
+        if (files.length > 0) {
+            const fileTypes: Record<string, number> = {};
+            files.forEach(file => {
+                const parts = file.name.split('.');
+                const ext = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
+                const size = parseSize(file.size);
+                if (ext) {
+                    fileTypes[ext] = (fileTypes[ext] || 0) + size;
+                }
+            });
+            setFilesByType(fileTypes);
+        }
+    }, [files]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
+            // TODO 一个奇怪的报错，但是不影响
             setSelectedFile(e.target.files[0]);
             setUploadError('');
         }
@@ -124,19 +144,16 @@ export default function Dashboard() {
         xhr.send(formData);
     };
 
-
-    useEffect(() => {
-        console.log(files);
-        setData(pageDataToTreeData(files));
-    }, [files]);
-
     const totalSize = files.reduce((sum, f) => sum + parseSize(f.size), 0);
-    const segments = files.map((f, i) => ({
-        name: f.name,
-        percent: totalSize === 0 ? 0 : (parseSize(f.size) / totalSize) * 100,
-        color: colorPalette[i % colorPalette.length]
-    }));
-
+    const segments = Object.entries(filesByType).map((name, idx) => {
+        const size = filesByType[name[0]];
+        const percent = (size / totalSize) * 100;
+        return {
+            name: name[0],
+            percent,
+            color: colorPalette[idx % colorPalette.length]
+        };
+    });
     return (
         <div className="dashboard-container">
             <h2>文件存储概览</h2>
@@ -146,7 +163,7 @@ export default function Dashboard() {
                     <div
                         key={idx}
                         className="storage-segment"
-                        style={{ width: `${seg.percent}%`, backgroundColor: seg.color }}
+                        style={{width: `${seg.percent}%`, backgroundColor: seg.color}}
                         title={`${seg.name}: ${seg.percent.toFixed(1)}%`}
                     />
                 ))}
@@ -154,7 +171,7 @@ export default function Dashboard() {
             <ul className="storage-legend">
                 {segments.map((seg, idx) => (
                     <li key={idx}>
-                        <span className="legend-dot" style={{ backgroundColor: seg.color }}></span>
+                        <span className="legend-dot" style={{backgroundColor: seg.color}}></span>
                         {seg.name} - {seg.percent.toFixed(1)}%
                     </li>
                 ))}
@@ -163,7 +180,7 @@ export default function Dashboard() {
                 <input
                     type="file"
                     id="file-upload"
-                    style={{ display: 'none' }}
+                    style={{display: 'none'}}
                     onChange={handleFileChange}
                 />
                 <label htmlFor="file-upload" className="upload-btn">
@@ -186,15 +203,15 @@ export default function Dashboard() {
                     <div className="upload-progress-bar">
                         <div
                             className="upload-progress-fill"
-                            style={{ width: `${uploadProgress}%` }}
+                            style={{width: `${uploadProgress}%`}}
                         ></div>
                     </div>
                 )}
             </div>
             <div className="file-tree">
-                <FileTree data={data} />
+                <FileTree data={data}/>
             </div>
 
-        </div >
+        </div>
     );
 }
