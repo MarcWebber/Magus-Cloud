@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.0.15",
     "@types/react": "^19.1.8",
@@ -25,6 +26,7 @@
   },
   "dependencies": {
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.532.0",
     "multer": "^2.0.2",
     "pinyin": "^4.0.0",

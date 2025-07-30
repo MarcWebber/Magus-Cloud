@@ -51,15 +51,18 @@ export default function FileTree({
 
     }
     return (
-        <div className="file-tree-container">
+        <div className={Styles['file-tree-container']}>
             <div className="tree-actions mb-2 flex gap-2">
                 <button onClick={() => expandOrCollapseAll(true)}>展开全部</button>
                 <button onClick={() => expandOrCollapseAll(false)}>收起全部</button>
             </div>
+            {/*TODO: 自适应宽度*/}
             <Tree<FileTreeNode>
+                className={Styles['file-tree']}
                 data={data}
                 ref={treeRef}
                 openByDefault={true}
+                width={1000}
                 // onSelect={onSelect}
                 // onCreate={onCreate}
                 onRename={onRename}

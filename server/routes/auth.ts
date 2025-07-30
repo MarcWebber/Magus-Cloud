@@ -1,8 +1,9 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { toPinyin } from '../utils/utils';
 import { allowed_name_list, current_name_set } from '../constants';
 import logger from '../logger';
-import { registerUser, changePassword } from '../services/userService';
+import {registerUser, changePassword, loginUser} from '../services/userService';
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
+
 router.post('/change-password', async (req, res) => {
     const { username, newPassword } = req.body;
     try {
@@ -37,15 +39,26 @@ router.post('/change-password', async (req, res) => {
 });
 
 // 登录
-router.post('/login', (req, res) => {
-    const { username, password } = req.body;
+router.post('/login', async (req, res) => {
+    const {username, password} = req.body;
     logger.info(`用户尝试登录: ${username},使用密码: ${password ? '已提供' : '未提供'}`);
     if (current_name_set.has(username)) {
-        logger.info(`用户 ${username} 登录成功`);
-        res.json({ message: '登录成功' , success: true});
+        // 密码验证
+        try {
+            const result = await loginUser(username, password);
+            if (result !== '登录成功') {
+                logger.warn(`用户 ${username} 登录失败: ${result}`);
+                return res.status(401).json({error: '登录失败，用户名或密码错误', success: false});
+            }
+            res.json({message: '登录成功', success: true});
+
+        } catch (err) {
+            logger.warn(`用户 ${username} 登录失败: ${err.message}`);
+            res.status(401).json({error: '登录失败，用户名或密码错误', success: false});
+        }
     } else {
         logger.warn(`用户 ${username} 登录失败: 用户名不存在`);
-        res.status(401).json({ error: '用户名不存在' });
+        res.status(401).json({error: '用户名不存在'});
     }
 });
 

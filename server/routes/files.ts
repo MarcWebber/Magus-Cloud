@@ -1,16 +1,17 @@
-import { Router } from 'express';
+import {Router} from 'express';
 import fs from 'fs';
 import path from 'path';
-import { spawn } from 'child_process';
+import {spawn} from 'child_process';
 import logger from "../logger";
-import multer from 'multer';
+import {upload} from "../middleware/storage";
+import {useGuard} from "../middleware/authenticationToken";
 
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
 
 router.get('/files', (req, res) => {
     // TODO 修改路径
-    if( isDev) {
+    if (isDev) {
         logger.info('开发模式，返回测试文件信息');
         return res.json(DevEnvGetFile());
     }
@@ -18,53 +19,47 @@ router.get('/files', (req, res) => {
     try {
         const files = fs.readdirSync(userDir).map(name => {
             const stats = fs.statSync(path.join(userDir, name));
-            return { name, size: stats.size + ' bytes' };
+            return {name, size: stats.size + ' bytes'};
         });
         const du = spawn('du', ['-sh', userDir]);
         du.stdout.on('data', (data) => {
             const usage = data.toString().split('\t')[0];
-            res.json({ files, usage });
+            res.json({files, usage});
         });
     } catch (e) {
-        res.status(500).json({ error: '无法读取文件信息' });
+        res.status(500).json({error: '无法读取文件信息'});
     }
 });
 
 function DevEnvGetFile() {
     return {
         files: [
-            { name: 'docs/reportttttttttttttttttttttttttttttttttttttttttttttttt.pdf', size: '234567 bytes' },
-            { name: 'docs/specs/design.docx', size: '87654 bytes' },
-            { name: 'data/raw/data1.csv', size: '54321 bytes' },
-            { name: 'data/processed/results.json', size: '66552 bytes' },
-            { name: 'images/logo.png', size: '123456 bytes' },
-            { name: 'archive/logs.zip', size: '88234 bytes' },
-            { name: 'README.md', size: '1024 bytes' },
+            {name: 'docs/reportttttttttttttttttttttttttttttttttttttttttttttttt.pdf', size: '234567 bytes'},
+            {name: 'docs/specs/design.docx', size: '87654 bytes'},
+            {name: 'data/raw/data1.csv', size: '54321 bytes'},
+            {name: 'data/processed/results.json', size: '66552 bytes'},
+            {name: 'images/logo.png', size: '123456 bytes'},
+            {name: 'archive/logs.zip', size: '88234 bytes'},
+            {name: 'README.md', size: '1024 bytes'},
         ],
         usage: '512K'
     };
 }
 
-// 定义文件存储位置
-const uploadDir = '/www/wwwroot/chensheng';
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const timestamp = Date.now();
-        const uniqueName = `${timestamp}-${file.originalname}`;
-        cb(null, uniqueName);
-    },
-});
-const upload = multer({ storage });
-
-router.post('/upload', upload.single('file'), (req, res) => {
+router.post('/upload', ...useGuard(upload.single('file'), (req, res) => {
+    // 打印req.user
+    logger.info(`用户信息: ${JSON.stringify(req.user)}`);
     if (!req.file) {
-        return res.status(400).json({ error: '未接收到文件' });
+        return res.status(400).json({error: '未接收到文件'});
     }
     logger.info(`上传成功: ${req.file.originalname}`);
-    res.json({ message: '上传成功', file: req.file.filename });
-});
+    res.json({message: '上传成功', file: req.file.filename});
+}));
 
 export default router;
+
+
+// // 文件指定下载
+// router.get('/download/:filename', (req, res) => {
+//
+// }
