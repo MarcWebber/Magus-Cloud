@@ -9,13 +9,13 @@ import {authenticateToken, useGuard} from "../middleware/authenticationToken";
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
 
-router.get('/files', (req, res) => {
+router.get('/files', ...useGuard(authenticateToken, (req, res) => {
     // TODO 修改路径
     if (isDev) {
         logger.info('开发模式，返回测试文件信息');
         return res.json(DevEnvGetFile());
     }
-    const userDir = '/www/wwwroot/chensheng';
+    const userDir = `/www/wwwroot/${req.username || `default`}`;
     try {
         const files = fs.readdirSync(userDir).map(name => {
             const stats = fs.statSync(path.join(userDir, name));
@@ -29,7 +29,7 @@ router.get('/files', (req, res) => {
     } catch (e) {
         res.status(500).json({error: '无法读取文件信息'});
     }
-});
+}));
 
 function DevEnvGetFile() {
     return {

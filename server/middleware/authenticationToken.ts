@@ -19,8 +19,9 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
         logger.info(`验证用户: ${user ? user : '未知用户'}`);
         if (err) return res.status(403).json({error: 'Token 无效'});
         req.user = user; // 挂载用户信息
+        req.username = user['username'];
         // TODO 这里可能存在问题
-        console.log(req.user);
+        logger.info(`用户 ${req.username} 验证通过`);
         next();
     });
 }
