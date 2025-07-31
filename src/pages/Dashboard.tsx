@@ -23,6 +23,8 @@ function parseSize(sizeStr: string): number {
 function pageDataToTreeData(files: FileItem[]) {
     const tree: FileTreeNode[] = [];
 
+    console.log(files);
+
     files.forEach(file => {
         const parts = file.name.split('/');
         let currentLevel = tree;
@@ -34,7 +36,8 @@ function pageDataToTreeData(files: FileItem[]) {
                     id: `${parts.slice(0, index + 1).join('-')}`,
                     name: part,
                     children: [],
-                    type: index === parts.length - 1 ? 'file' : 'folder'
+                    type: index === parts.length - 1 ? 'file' : 'folder',
+                    size: file.size,
                 };
                 currentLevel.push(node);
             }

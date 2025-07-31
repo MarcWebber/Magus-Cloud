@@ -1,8 +1,10 @@
 .dashboard-container {
     max-width: 1920px;
     min-width: 800px;
-    margin: auto;
+    /*margin: auto;*/
     font-family: sans-serif;
+    margin-left: 50px;
+    margin-right: 50px;
 }
 
 .file-tree-container {

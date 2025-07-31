@@ -39,10 +39,9 @@
     display: flex;
 }
 
-/*名称,保证400的最小宽度*/
 .node-name{
     display: block;
-    min-width: 400px;
+    min-width: 250px;
 }
 /*时间与大小展示*/
 .node-label {
@@ -61,4 +60,17 @@
     font-size: 12px;
     color: #666;
     padding-left: 12px;
+
+}
+
+/*设置锚点 y =500px
+TODO 不能自适应*/
+.node-size{
+    position: fixed;
+    left: 300px;
+}
+
+.node-time{
+    position: fixed;
+    left: 500px;
 }
