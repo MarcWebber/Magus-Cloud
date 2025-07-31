@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import logger from './logger';
 import {DevEnvLoadCurrentPureUsers, loadCurrentPureUsers} from './utils/loadUsers';
@@ -12,6 +13,8 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
 
+// 解析cookie
+app.use(cookieParser());
 app.use('/api', authRoutes);
 app.use('/api', fileRoutes);
 app.use('/api/backdoor', backdoorRoutes);

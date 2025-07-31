@@ -1,9 +1,11 @@
-// types/express/index.d.ts
-import 'express';
 import { JwtPayload } from 'jsonwebtoken';
 
-declare module 'express' {
-    export interface Request {
-        user?: string | JwtPayload;
+declare global {
+    namespace Express {
+        interface Request {
+            username?: string;
+            // 如果您使用的是 jwt.verify 后得到完整 user 对象，也可以挂 req.user
+            user?: string | JwtPayload;
+        }
     }
 }

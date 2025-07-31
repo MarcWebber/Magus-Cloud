@@ -67,7 +67,9 @@ export default function Dashboard() {
 
     // 三个useEffect，一个用于获取文件列表和磁盘用量，一个更新文件树，另一个用于按照文件类型计算总站用
     useEffect(() => {
-        fetch('/api/files')
+        fetch('/api/files',{
+            credentials: 'include' // 确保发送cookie
+        })
             .then(res => res.json())
             .then(data => {
                 setFiles(data.files || []);
@@ -75,7 +77,7 @@ export default function Dashboard() {
             })
     }, [])
     useEffect(() => {
-        console.log(files);
+        // console.log(files);
         setData(pageDataToTreeData(files));
         if (files.length > 0) {
             const fileTypes: Record<string, number> = {};
@@ -120,7 +122,9 @@ export default function Dashboard() {
 
         xhr.onload = () => {
             if (xhr.status === 200) {
-                fetch('/api/files')
+                fetch('/api/files',{
+                    credentials: 'include' // 确保发送cookie
+                })
                     .then(res => res.json())
                     .then(data => {
                         setFiles(data.files || []);
@@ -139,7 +143,9 @@ export default function Dashboard() {
             setUploading(false);
         };
 
+        // 设置cookie
         xhr.open('POST', '/api/upload', true);
+        xhr.withCredentials = true;
         xhr.send(formData);
     };
 

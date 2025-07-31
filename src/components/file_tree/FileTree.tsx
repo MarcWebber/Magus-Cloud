@@ -35,7 +35,7 @@ export default function FileTree({
     const treeRef = useRef<TreeApi<FileTreeNode> | null>(null);
     const expandOrCollapseAll = (expand: boolean) => {
         const tree = treeRef.current;
-        console.log(tree);
+        // console.log(tree);
         if (!tree) return;
         if (expand){
             tree.openAll();

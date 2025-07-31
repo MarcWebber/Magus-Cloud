@@ -4,7 +4,7 @@ import path from 'path';
 import {spawn} from 'child_process';
 import logger from "../logger";
 import {upload} from "../middleware/storage";
-import {useGuard} from "../middleware/authenticationToken";
+import {authenticateToken, useGuard} from "../middleware/authenticationToken";
 
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
@@ -46,15 +46,19 @@ function DevEnvGetFile() {
     };
 }
 
-router.post('/upload', ...useGuard(upload.single('file'), (req, res) => {
+router.post('/upload', authenticateToken, (req, res) => {
     // 打印req.user
-    logger.info(`用户信息: ${JSON.stringify(req.user)}`);
-    if (!req.file) {
-        return res.status(400).json({error: '未接收到文件'});
-    }
-    logger.info(`上传成功: ${req.file.originalname}`);
-    res.json({message: '上传成功', file: req.file.filename});
-}));
+    upload.single('file')(req, res, (err) => {
+        logger.info("api/upload被运行了");
+        console.log(`用户信息: ${JSON.stringify(req.user)}`);
+        logger.info(`用户信息: ${JSON.stringify(req.user)}`);
+        if (!req.file) {
+            return res.status(400).json({error: '未接收到文件'});
+        }
+        logger.info(`上传成功: ${req.file.originalname}`);
+        res.json({message: '上传成功', file: req.file.filename});
+    });
+});
 
 export default router;
 

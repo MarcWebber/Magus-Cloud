@@ -8,3 +8,5 @@ export const allowed_name_list: string[] = [
 ];
 
 export const current_name_set = new Set<string>();
+export const JWT_SECRET = 'Xkw20021114'
+export const JWT_EXPIRATION = 24; // Token 过期时间

@@ -23,7 +23,7 @@ export default function Register() {
             body: JSON.stringify({realName})
         });
         const nameCheckData = await nameCheckRes.json();
-        console.log(nameCheckData)
+        // console.log(nameCheckData)
         if (!nameCheckData.allowed) {
             alert("该真实姓名未被允许注册！");
             return;
