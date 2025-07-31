@@ -60,6 +60,53 @@ router.post('/upload', authenticateToken, (req, res) => {
     });
 });
 
+
+// 新增：文件下载接口
+router.get('/download', authenticateToken, (req, res) => {
+  const { filename } = req.query;
+  if (!filename) {
+    return res.status(400).json({ error: '缺少文件名' });
+  }
+
+  // 确定文件存储路径（与上传路径一致）
+  const userDir = isDev 
+    ? path.join(__dirname, '../uploads') // 开发环境
+    : `/www/wwwroot/${req.username || `default`}`; // 生产环境
+
+  const filePath = path.join(userDir, decodeURIComponent(filename as string));
+
+  // 检查文件是否存在
+  if (!fs.existsSync(filePath)) {
+    logger.error(`文件不存在：${filePath}`);
+    return res.status(404).json({ error: '文件不存在' });
+  }
+
+  // 检查是否为文件（避免下载目录）
+  const stats = fs.statSync(filePath);
+  if (!stats.isFile()) {
+    return res.status(400).json({ error: '不支持下载目录' });
+  }
+
+  // 设置响应头（关键：让浏览器识别为下载）
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader(
+    'Content-Disposition', 
+    `attachment; filename="${encodeURIComponent(filename as string)}"`
+  );
+  res.setHeader('Content-Length', stats.size);
+
+  // 流式传输文件（适合大文件）
+  const fileStream = fs.createReadStream(filePath);
+  fileStream.pipe(res);
+
+  // 处理错误
+  fileStream.on('error', (err) => {
+    logger.error(`文件读取失败：${err.message}`);
+    res.status(500).json({ error: '文件读取失败' });
+  });
+});
+
+
 export default router;
 
 

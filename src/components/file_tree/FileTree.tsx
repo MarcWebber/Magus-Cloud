@@ -3,6 +3,7 @@ import React, {useRef} from 'react';
 
 import {Tree, NodeApi, NodeRendererProps, TreeApi} from 'react-arborist';
 import Styles from './FileTree.module.css';
+import {handleDownload} from '../../utils';
 
 export type FileTreeNode = {
     id: string;
@@ -164,6 +165,7 @@ function CustomNode({
                             onClick={(e) => {
                                 e.stopPropagation();
                                 console.log('下载', node.data.name);
+                                handleDownload(node.data.name); // 调用下载函数，传入文件名
                             }}
                         >
                             ⬇️
