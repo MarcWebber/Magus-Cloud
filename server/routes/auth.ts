@@ -1,7 +1,7 @@
 import {Router} from 'express';
 import jwt from 'jsonwebtoken';
 import {toPinyin} from '../utils/utils';
-import {allowed_name_list, current_name_set, JWT_EXPIRATION, JWT_SECRET} from '../constants';
+import {allowed_name_list, current_name_set, JWT_EXPIRATION, JWT_EXPIRATION_MS, JWT_SECRET} from '../constants';
 import logger from '../logger';
 import {registerUser, changePassword, loginUser} from '../services/userService';
 import {authenticateToken, useGuard} from "../middleware/authenticationToken";
@@ -63,7 +63,7 @@ router.post('/login', async (req, res) => {
             httpOnly: true,
             // TODO 在dev环境下可以设置为false
             secure: process.env.NODE_ENV === 'production',
-            maxAge: JWT_EXPIRATION * 60 * 60 * 1000 //
+            maxAge: JWT_EXPIRATION_MS //
         });
         res.json({
             message: '登录成功',

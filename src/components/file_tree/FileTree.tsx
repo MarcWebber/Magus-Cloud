@@ -143,7 +143,7 @@ function CustomNode({
             onDoubleClick={handleDoubleClick}
         >
             <span>{getIcon(node.data.name)}</span>
-            <span className={Styles['node-name']}>{node.data.name}</span>
+            <span className={Styles['node-name']}>{node.data.name.length>20?node.data.name.slice(0,20)+"...":node.data.name}</span>
             {/* 文件大小 */}
             <div className={Styles['node-size']}>
                 {node.data.size || '--'}

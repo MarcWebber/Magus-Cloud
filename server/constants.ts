@@ -9,4 +9,5 @@ export const allowed_name_list: string[] = [
 
 export const current_name_set = new Set<string>();
 export const JWT_SECRET = 'Xkw20021114'
-export const JWT_EXPIRATION = 24; // Token 过期时间
+export const JWT_EXPIRATION = 2*60*60; // Token 过期时间
+export const JWT_EXPIRATION_MS = JWT_EXPIRATION * 1000; // Token 过期时间（毫秒）
