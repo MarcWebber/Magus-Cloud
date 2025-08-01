@@ -4,7 +4,7 @@ import "../styles/Dashboard.css";
 import type {FileTreeNode} from "../components/file_tree/FileTree.tsx";
 import FileTree from "../components/file_tree/FileTree.tsx";
 
-type FileItem = { name: string, size: string };
+type FileItem = { name: string, size: string, mtime: string };
 
 function parseSize(sizeStr: string): number {
     const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
@@ -23,6 +23,8 @@ function parseSize(sizeStr: string): number {
 function pageDataToTreeData(files: FileItem[]) {
     const tree: FileTreeNode[] = [];
 
+    console.log(files);
+
     files.forEach(file => {
         const parts = file.name.split('/');
         let currentLevel = tree;
@@ -34,7 +36,9 @@ function pageDataToTreeData(files: FileItem[]) {
                     id: `${parts.slice(0, index + 1).join('-')}`,
                     name: part,
                     children: [],
-                    type: index === parts.length - 1 ? 'file' : 'folder'
+                    type: index === parts.length - 1 ? 'file' : 'folder',
+                    size: file.size,
+                    mtime: file.mtime.replace('T', ' ').replace('Z', ''),
                 };
                 currentLevel.push(node);
             }
@@ -67,7 +71,7 @@ export default function Dashboard() {
 
     // 三个useEffect，一个用于获取文件列表和磁盘用量，一个更新文件树，另一个用于按照文件类型计算总站用
     useEffect(() => {
-        fetch('/api/files',{
+        fetch('/api/files', {
             credentials: 'include' // 确保发送cookie
         })
             .then(res => res.json())
@@ -122,7 +126,7 @@ export default function Dashboard() {
 
         xhr.onload = () => {
             if (xhr.status === 200) {
-                fetch('/api/files',{
+                fetch('/api/files', {
                     credentials: 'include' // 确保发送cookie
                 })
                     .then(res => res.json())

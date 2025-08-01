@@ -11,7 +11,7 @@ export type FileTreeNode = {
     children?: FileTreeNode[];
     size?: string;
     type: 'file' | 'folder';
-
+    mtime?: string; // 上传时间
 };
 
 type Props = {
@@ -38,12 +38,13 @@ export default function FileTree({
         const tree = treeRef.current;
         // console.log(tree);
         if (!tree) return;
-        if (expand){
+        if (expand) {
             tree.openAll();
-        }else{
+        } else {
             tree.closeAll();
         }
     };
+
     function onClickDelete(node: NodeApi<FileTreeNode>) {
 
     }
@@ -51,6 +52,7 @@ export default function FileTree({
     function onClickDownload(node: NodeApi<FileTreeNode>) {
 
     }
+
     return (
         <div className={Styles['file-tree-container']}>
             <div className="tree-actions mb-2 flex gap-2">
@@ -58,12 +60,20 @@ export default function FileTree({
                 <button onClick={() => expandOrCollapseAll(false)}>收起全部</button>
             </div>
             {/*TODO: 自适应宽度*/}
+            {/*<span>{"文件名"}</span>*/}
+            {/*/!*<div className={Styles['node-row']}>*!/*/}
+            {/*<span*/}
+            {/*    className={Styles['node-name']}>{"文件大小"}</span>*/}
+            {/*/!* 文件大小 *!/*/}
+            {/*<div className={Styles['node-size']}>*/}
+            {/*    {"上传时间"}*/}
+            {/*</div>*/}
             <Tree<FileTreeNode>
                 className={Styles['file-tree']}
                 data={data}
                 ref={treeRef}
                 openByDefault={true}
-                width={1000}
+                width={800}
                 // onSelect={onSelect}
                 // onCreate={onCreate}
                 onRename={onRename}
@@ -104,7 +114,7 @@ function CustomNode({
         }
     };
 
-    const getIcon = (name:string) => {
+    const getIcon = (name: string) => {
         if (isFolder) {
             return node.isOpen ? '📂' : '📁';
         }
@@ -144,7 +154,9 @@ function CustomNode({
             onDoubleClick={handleDoubleClick}
         >
             <span>{getIcon(node.data.name)}</span>
-            <span className={Styles['node-name']}>{node.data.name.length>20?node.data.name.slice(0,20)+"...":node.data.name}</span>
+            {/*<div className={Styles['node-row']}>*/}
+            <span
+                className={Styles['node-name']}>{node.data.name.length > 20 ? node.data.name.slice(0, 20) + "..." : node.data.name}</span>
             {/* 文件大小 */}
             <div className={Styles['node-size']}>
                 {node.data.size || '--'}
@@ -152,12 +164,13 @@ function CustomNode({
 
             {/* 上传时间 */}
             <div className={Styles['node-time']}>
-                {'--'}
+                {node.data.mtime || '--'}
             </div>
+            {/*</div>*/}
 
             <div className={Styles['tree-node-actions']}>
                 {/*TODO: 文件夹提供别的下载方式*/}
-                { (
+                {(
                     <>
                         <span
                             title="下载"
