@@ -10,10 +10,10 @@ const storage = multer.diskStorage({
         cb(null, `/www/wwwroot/${req.username || 'default'}`);
     },
     filename: function (req, file, cb) {
+
         const timestamp = Date.now();
         const uniqueName = `${timestamp}-${file.originalname}`;
-        console.log(`上传文件: ${uniqueName}`);
-        cb(null, uniqueName);
+        cb(null, Buffer.from(uniqueName, 'latin1').toString('utf8'));
     },
 });
 
