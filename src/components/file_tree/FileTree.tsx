@@ -3,6 +3,8 @@ import React, {useRef} from 'react';
 
 import {Tree, NodeApi, NodeRendererProps, TreeApi} from 'react-arborist';
 import Styles from './FileTree.module.css';
+import {extMap} from "../../constants.ts";
+import ShareModal from "../share_modal/ShareModal.tsx";
 
 export type FileTreeNode = {
     id: string;
@@ -44,13 +46,8 @@ export default function FileTree({
         }
     };
 
-    function onClickDelete(node: NodeApi<FileTreeNode>) {
-
-    }
-
-    function onClickDownload(node: NodeApi<FileTreeNode>) {
-
-    }
+    function onClickDelete(node: NodeApi<FileTreeNode>) {}
+    function onClickDownload(node: NodeApi<FileTreeNode>) {}
 
     return (
         <div className={Styles['file-tree-container']}>
@@ -98,6 +95,7 @@ function CustomNode({
     onSelect?: (node: NodeApi<FileTreeNode>) => void;
 }) {
     const isFolder = node.data.type === 'folder';
+    const [shareVisible, setShareVisible] = React.useState(false);
 
     const handleClick = () => {
         if (isFolder) {
@@ -113,35 +111,16 @@ function CustomNode({
         }
     };
 
+    const handleShare = () => {
+        // 谈一个窗口，给出分享链接，参考百度网盘
+        setShareVisible(true);
+    }
+
     const getIcon = (name: string) => {
         if (isFolder) {
             return node.isOpen ? '📂' : '📁';
         }
-        if (name.endsWith('.txt')) {
-            return '📄'; // 文本文件
-        }
-        if (name.endsWith('.jpg') || name.endsWith('.png')) {
-            return '🖼️'; // 图片文件
-        }
-        if (name.endsWith('.mp4') || name.endsWith('.avi')) {
-            return '🎥'; // 视频文件
-        }
-        if (name.endsWith('.mp3') || name.endsWith('.wav')) {
-            return '🎵'; // 音频文件
-        }
-        // 压缩文件
-        if (name.endsWith('.zip') || name.endsWith('.rar')) {
-            return '📦'; // 压缩文件
-        }
-        // pdf
-        if (name.endsWith('.pdf')) {
-            return '📑'; // PDF文件
-        }
-        // 表格文件
-        if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv')) {
-            return '📈'; // 表格/数据文件
-        }
-        return '📄'; // 默认文件图标
+        return extMap[name.split('.').pop() || ''] || '📄'; // 默认文件图标
     }
 
     return (
@@ -191,9 +170,27 @@ function CustomNode({
                         >
                             🗑️
                         </span>
+
+                        <span
+                            title="分享"
+                            style={{cursor: 'pointer'}}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                console.log('分享', node.data.name);
+                                handleShare();
+                            }}
+                        >
+                            📤
+                        </span>
                     </>
                 )}
             </div>
+
+            <ShareModal
+                fileName={node.data.name || ''}
+                visible={shareVisible}
+                onClose={() => setShareVisible(false)}
+            />
         </div>
     );
 }
