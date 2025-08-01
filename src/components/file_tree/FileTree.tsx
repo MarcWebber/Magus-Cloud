@@ -10,7 +10,7 @@ export type FileTreeNode = {
     children?: FileTreeNode[];
     size?: string;
     type: 'file' | 'folder';
-
+    lastUpdated?: string; // 上传时间
 };
 
 type Props = {

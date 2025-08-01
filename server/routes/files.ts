@@ -19,7 +19,7 @@ router.get('/files', ...useGuard(authenticateToken, (req, res) => {
     try {
         const files = fs.readdirSync(userDir).map(name => {
             const stats = fs.statSync(path.join(userDir, name));
-            return {name, size: stats.size + ' bytes'};
+            return {name, size: stats.size + ' bytes',mtime: stats.mtime.toISOString()};
         });
         const du = spawn('du', ['-sh', userDir]);
         du.stdout.on('data', (data) => {
