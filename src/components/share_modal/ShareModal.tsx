@@ -23,10 +23,27 @@ export default function ShareModal({ fileName, visible, onClose }: ShareModalPro
 
     const copyText = async (text: string) => {
         try {
-            await navigator.clipboard.writeText(text);
-            alert('已复制');
-        } catch {
-            alert('复制失败');
+            // 现代浏览器 + HTTPS 下优先使用
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // 回退方式：创建隐藏 textarea 实现复制
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed'; // 避免页面抖动
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+
+            alert('已复制到剪贴板');
+        } catch (e) {
+            console.error('复制失败', e);
+            alert('复制失败，请手动复制');
         }
     };
 
