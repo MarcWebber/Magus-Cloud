@@ -1,5 +1,5 @@
 // ShareModal.tsx
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import Styles from './ShareModal.module.css';
 
 type ShareModalProps = {
@@ -8,7 +8,7 @@ type ShareModalProps = {
     onClose: () => void;
 };
 
-export default function ShareModal({ fileName, visible, onClose }: ShareModalProps) {
+export default function ShareModal({fileName, visible, onClose}: ShareModalProps) {
     const [link, setLink] = useState('');
     const [curlCommand, setCurlCommand] = useState('');
 
@@ -16,6 +16,13 @@ export default function ShareModal({ fileName, visible, onClose }: ShareModalPro
         if (visible && fileName) {
             const encoded = encodeURIComponent(fileName);
             const baseUrl = `${window.location.origin}/api/download/${encoded}`;
+            fetch('/api/files', {
+                credentials: 'include' // 确保发送cookie
+            }).then(r => {
+
+            }).then(() => {
+
+            })
             setLink(baseUrl);
             setCurlCommand(`curl -O "${baseUrl}"`);
         }
@@ -23,10 +30,29 @@ export default function ShareModal({ fileName, visible, onClose }: ShareModalPro
 
     const copyText = async (text: string) => {
         try {
-            await navigator.clipboard.writeText(text);
-            alert('已复制');
-        } catch {
-            alert('复制失败');
+            // 现代浏览器 + HTTPS 下优先使用
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // 回退方式：创建隐藏 textarea 实现复制
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed'; // 避免页面抖动
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                if (!successful) throw new Error('execCommand 失败');
+            }
+
+            alert('已复制到剪贴板');
+        } catch (e) {
+            console.error('复制失败', e);
+            alert('复制失败，请手动复制');
         }
     };
 
