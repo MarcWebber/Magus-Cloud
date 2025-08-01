@@ -10,7 +10,7 @@ export type FileTreeNode = {
     children?: FileTreeNode[];
     size?: string;
     type: 'file' | 'folder';
-    lastUpdated?: string; // 上传时间
+    mtime?: string; // 上传时间
 };
 
 type Props = {
@@ -163,7 +163,7 @@ function CustomNode({
 
             {/* 上传时间 */}
             <div className={Styles['node-time']}>
-                {'--'}
+                {node.data.mtime || '--'}
             </div>
             {/*</div>*/}
 
