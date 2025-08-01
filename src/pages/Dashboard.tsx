@@ -38,7 +38,7 @@ function pageDataToTreeData(files: FileItem[]) {
                     children: [],
                     type: index === parts.length - 1 ? 'file' : 'folder',
                     size: file.size,
-                    lastUpdated: file.mtime
+                    mtime: file.mtime
                 };
                 currentLevel.push(node);
             }
