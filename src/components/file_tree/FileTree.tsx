@@ -162,6 +162,7 @@ function CustomNode({
                         >
                             ⬇️
                         </span>
+
                         <span
                             title="删除"
                             style={{cursor: 'pointer'}}
@@ -173,7 +174,7 @@ function CustomNode({
                             🗑️
                         </span>
 
-                        <span
+                        {/* <span
                             title="分享"
                             style={{cursor: 'pointer'}}
                             onClick={(e) => {
@@ -183,7 +184,7 @@ function CustomNode({
                             }}
                         >
                             📤
-                        </span>
+                        </span> */}
                     </>
                 )}
             </div>

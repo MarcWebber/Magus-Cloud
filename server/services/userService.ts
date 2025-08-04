@@ -3,6 +3,7 @@ import { spawn } from 'child_process';
 import { toPinyin } from '../utils/utils';
 import logger from '../logger';
 
+
 const isDev = process.env.NODE_ENV === 'development';
 
 export async function registerUser(realName: string, password: string): Promise<string> {
@@ -56,6 +57,7 @@ export async function loginUser(username: string, password: string): Promise<str
         });
     });
 }
+
 
 
 function DevLogin(): Promise<string> {
