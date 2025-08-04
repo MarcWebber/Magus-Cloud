@@ -17,36 +17,6 @@ export const initialData: FileTreeNode[] = [
     },
 ];
 
-//     const getIcon = (name: string) => {
-//         if (isFolder) {
-//             return node.isOpen ? '📂' : '📁';
-//         }
-//         if (name.endsWith('.txt')) {
-//             return '📄'; // 文本文件
-//         }
-//         if (name.endsWith('.jpg') || name.endsWith('.png')) {
-//             return '🖼️'; // 图片文件
-//         }
-//         if (name.endsWith('.mp4') || name.endsWith('.avi')) {
-//             return '🎥'; // 视频文件
-//         }
-//         if (name.endsWith('.mp3') || name.endsWith('.wav')) {
-//             return '🎵'; // 音频文件
-//         }
-//         // 压缩文件
-//         if (name.endsWith('.zip') || name.endsWith('.rar')) {
-//             return '📦'; // 压缩文件
-//         }
-//         // pdf
-//         if (name.endsWith('.pdf')) {
-//             return '📑'; // PDF文件
-//         }
-//         // 表格文件
-//         if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv')) {
-//             return '📈'; // 表格/数据文件
-//         }
-//         return '📄'; // 默认文件图标
-//     }
 export const extMap: Record<string, string> = {
     "txt":'📄',
     "jpg":'🖼️',
@@ -64,5 +34,10 @@ export const extMap: Record<string, string> = {
     "docx":'📄',
     "json":'📄',
     "html":'🌐',
+
+}
+
+export const nameMap: Record<string, string> = {
+    "xuyi":'徐一',
 
 }

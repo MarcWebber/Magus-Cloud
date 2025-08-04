@@ -5,8 +5,8 @@ import {Tree, NodeApi, NodeRendererProps, TreeApi} from 'react-arborist';
 import Styles from './FileTree.module.css';
 import {handleDownload} from '../../utils';
 import {extMap} from "../../constants.ts";
-import ShareModal from "../share_modal/ShareModal.tsx";
-import DeleteModal from "../share_modal/DeleteModal.tsx";
+import ShareModal from "../share/ShareModal.tsx";
+import DeleteModal from "../share/DeleteModal.tsx";
 
 export type FileTreeNode = {
     id: string;

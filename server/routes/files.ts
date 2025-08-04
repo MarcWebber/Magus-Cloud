@@ -5,6 +5,8 @@ import {spawn} from 'child_process';
 import logger from "../logger";
 import {upload} from "../middleware/storage";
 import {authenticateToken, useGuard} from "../middleware/authenticationToken";
+import {getDirectorySize} from "../services/fileService";
+import {DevEnvGetFile, DevEnvGetUserUsage} from "../mock/files";
 
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
@@ -31,20 +33,6 @@ router.get('/files', ...useGuard(authenticateToken, (req, res) => {
     }
 }));
 
-function DevEnvGetFile() {
-    return {
-        files: [
-            {name: 'docs/reportttttttttttttttttttttttttttttttttttttttttttttttt.pdf', size: '234567 bytes',mtime: '2023-10-01T12:00:00Z'},
-            {name: 'docs/specs/design.docx', size: '87654 bytes',mtime: '2023-10-02T12:00:00Z'},
-            {name: 'data/raw/data1.csv', size: '54321 bytes', mtime: '2023-10-03T12:00:00Z'},
-            {name: 'data/processed/results.json', size: '66552 bytes', mtime: '2023-10-04T12:00:00Z'},
-            {name: 'images/logo.png', size: '123456 bytes',mtime: '2023-10-05T12:00:00Z'},
-            {name: 'archive/logs.zip', size: '88234 bytes',mtime: '2023-10-06T12:00:00Z'},
-            {name: 'README.md', size: '1024 bytes', mtime: '2023-10-07T12:00:00Z'},
-        ],
-        usage: '512K'
-    };
-}
 
 router.post('/upload', authenticateToken, (req, res) => {
     // 打印req.user
@@ -98,8 +86,6 @@ router.get('/download', authenticateToken, (req, res) => {
   // 流式传输文件（适合大文件）
   const fileStream = fs.createReadStream(filePath);
   fileStream.pipe(res);
-
-  // 处理错误
   fileStream.on('error', (err) => {
     logger.error(`文件读取失败：${err.message}`);
     res.status(500).json({ error: '文件读取失败' });
@@ -107,7 +93,6 @@ router.get('/download', authenticateToken, (req, res) => {
 });
 
 
-//
 router.post('/delete', ...useGuard(authenticateToken, (req, res) => {
     const { filename } = req.body;
     if (!filename) {
@@ -138,10 +123,29 @@ router.post('/delete', ...useGuard(authenticateToken, (req, res) => {
 
 }));
 
+// 获取总体的用量情况，按人分组
+router.get('/usage', authenticateToken, (req, res) => {
+    if (isDev) {
+        return res.json( DevEnvGetUserUsage() );
+    }
+    const rootDir = isDev ? path.join(__dirname, '../uploads') : `/www/wwwroot`;
+    // calculate the total size of files for each user
+    try{
+        const users = fs.readdirSync(rootDir).filter(name => {
+            return fs.statSync(path.join(rootDir, name)).isDirectory();
+        });
+
+        const usage = users.map(user => {
+            const userDir = path.join(rootDir, user);
+            const size = getDirectorySize(userDir);
+            return { user, size };
+        });
+
+        res.json({usage:usage});
+    }catch (err){
+        logger.error(`获取用户用量失败：${err.message}`);
+        res.status(500).json({ error: '无法获取用户用量信息' });
+    }
+});
+
 export default router;
-
-
-// // 文件指定下载
-// router.get('/download/:filename', (req, res) => {
-//
-// }

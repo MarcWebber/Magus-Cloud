@@ -5,6 +5,7 @@ import type {FileTreeNode} from "../components/file_tree/FileTree.tsx";
 import FileTree from "../components/file_tree/FileTree.tsx";
 
 type FileItem = { name: string, size: string, mtime: string };
+type UserUsage = { name: string, size: string};
 
 function parseSize(sizeStr: string): number {
     const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
@@ -57,6 +58,8 @@ const colorPalette = [
 ];
 
 export default function Dashboard() {
+    // 总用量
+    const [userUsage, setUserUsage] = useState<UserUsage[]>([]);
     const [files, setFiles] = useState<FileItem[]>([]);
     const [filesByType, setFilesByType] = useState<Record<string, number>>({});
     const [usage, setUsage] = useState('');
@@ -79,9 +82,20 @@ export default function Dashboard() {
                 setFiles(data.files || []);
                 setUsage(data.usage || '')
             })
-    }, [])
+    }, []);
+    // 获取每个人的用量
     useEffect(() => {
-        // console.log(files);
+        fetch('/api/usage', {
+            credentials: 'include' // 确保发送cookie
+        })
+            .then(res => res.json())
+            .then(data => {
+                console.log("DEBUGGING");
+                console.log(data.usage);
+                setUserUsage(data.usage || []);
+            });
+    }, []);
+    useEffect(() => {
         setData(pageDataToTreeData(files));
         if (files.length > 0) {
             const fileTypes: Record<string, number> = {};
@@ -166,7 +180,7 @@ export default function Dashboard() {
     return (
         <div className="dashboard-container">
             <h2>文件存储概览</h2>
-            <p>磁盘用量: {usage}</p>
+            <p>个人磁盘用量: {usage}</p>
             <div className="storage-bar">
                 {segments.map((seg, idx) => (
                     <div
@@ -185,6 +199,28 @@ export default function Dashboard() {
                     </li>
                 ))}
             </ul>
+
+            <h2>总体磁盘概览</h2>
+            {/*TODO 这里需要计算总用量*/}
+            <p>总用量: </p>
+            <ul className="storage-bar">
+                {userUsage.map((usage, idx) => (
+                    <div key={idx}
+                            className="storage-segment"
+                            style={{width: `${parseSize(usage.size) / totalSize * 100}%`, backgroundColor: colorPalette[idx % colorPalette.length]}}
+                            title={`${usage.name}: ${usage.size}`}>
+                    </div>
+                ))}
+            </ul>
+            <ul className={"storage-legend"}>
+                {userUsage.map((usage, idx) => (
+                    <li key={idx}>
+                        <span className="legend-dot" style={{backgroundColor: colorPalette[idx % colorPalette.length]}}></span>
+                        {usage.name} - {usage.size}
+                    </li>
+                ))}
+            </ul>
+
             <div className="upload-section">
                 <input
                     type="file"
