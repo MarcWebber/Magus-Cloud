@@ -51,7 +51,9 @@ export async function loginUser(username: string, password: string): Promise<str
         proc.stdin.end();
 
         proc.on('close', (code) => {
+            logger.info(`返回代码${code}`);
             if (code !== 0) return reject(new Error('登录失败'));
+            logger.info(`用户 ${username} 登录成功`);
             resolve('登录成功');
         });
     });

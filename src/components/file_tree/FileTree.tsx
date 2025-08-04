@@ -6,6 +6,7 @@ import Styles from './FileTree.module.css';
 import {handleDownload} from '../../utils';
 import {extMap} from "../../constants.ts";
 import ShareModal from "../share_modal/ShareModal.tsx";
+import DeleteModal from "../share_modal/DeleteModal.tsx";
 
 export type FileTreeNode = {
     id: string;
@@ -47,8 +48,11 @@ export default function FileTree({
         }
     };
 
-    function onClickDelete(node: NodeApi<FileTreeNode>) {}
-    function onClickDownload(node: NodeApi<FileTreeNode>) {}
+    function onClickDelete(node: NodeApi<FileTreeNode>) {
+    }
+
+    function onClickDownload(node: NodeApi<FileTreeNode>) {
+    }
 
     return (
         <div className={Styles['file-tree-container']}>
@@ -97,6 +101,7 @@ function CustomNode({
 }) {
     const isFolder = node.data.type === 'folder';
     const [shareVisible, setShareVisible] = React.useState(false);
+    const [deleteVisible, setDeleteVisible] = React.useState(false);
 
     const handleClick = () => {
         if (isFolder) {
@@ -117,6 +122,10 @@ function CustomNode({
         setShareVisible(true);
     }
 
+    const handleDelete = () => {
+        setDeleteVisible(true);
+    }
+
     const getIcon = (name: string) => {
         if (isFolder) {
             return node.isOpen ? '📂' : '📁';
@@ -135,7 +144,7 @@ function CustomNode({
             <span>{getIcon(node.data.name)}</span>
             {/*<div className={Styles['node-row']}>*/}
             <span
-                className={Styles['node-name']}>{node.data.name.length > 20 ? node.data.name.slice(0, 20) + "..." : node.data.name}</span>
+                className={Styles['node-name']}>{node.data.name.length > 30 ? node.data.name.slice(0, 30) + "..." : node.data.name}</span>
             {/* 文件大小 */}
             <div className={Styles['node-size']}>
                 {node.data.size || '--'}
@@ -168,6 +177,7 @@ function CustomNode({
                             onClick={(e) => {
                                 e.stopPropagation();
                                 console.log('删除', node.data.name);
+                                handleDelete();
                             }}
                         >
                             🗑️
@@ -193,6 +203,8 @@ function CustomNode({
                 visible={shareVisible}
                 onClose={() => setShareVisible(false)}
             />
+            <DeleteModal fileName={node.data.name || ''} visible={deleteVisible}
+                         onClose={() => setDeleteVisible(false)}/>
         </div>
     );
 }

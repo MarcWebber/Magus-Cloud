@@ -11,12 +11,12 @@ const storage = multer.diskStorage({
     },
     filename: function (req, file, cb) {
 
-        const timestamp = Date.now();
-        const uniqueName = `${timestamp}-${file.originalname}`;
+        // const timestamp = Date.now();
+        // const uniqueName = `${timestamp}-${file.originalname}`;
+        const uniqueName = `${file.originalname}`;
         cb(null, Buffer.from(uniqueName, 'latin1').toString('utf8'));
     },
 });
-
 
 
 // 定义文件下载中间件
@@ -30,6 +30,7 @@ export function download(req: Request, res: Response, next: NextFunction) {
     });
     next();
 }
+
 
 // 定义文件上传中间件
 export const upload = multer({storage});

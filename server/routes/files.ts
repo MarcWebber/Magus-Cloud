@@ -107,6 +107,37 @@ router.get('/download', authenticateToken, (req, res) => {
 });
 
 
+//
+router.post('/delete', ...useGuard(authenticateToken, (req, res) => {
+    const { filename } = req.body;
+    if (!filename) {
+        return res.status(400).json({ error: '缺少文件名' });
+    }
+    // 确定文件存储路径（与上传路径一致）
+    const userDir = isDev
+        ? path.join(__dirname, '../uploads') // 开发环境
+        : `/www/wwwroot/${req.username || `default`}`; // 生产环境
+
+    const filePath = path.join(userDir, decodeURIComponent(filename));
+
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+        logger.error(`文件不存在：${filePath}`);
+        return res.status(404).json({ error: '文件不存在' });
+    }
+
+    // 删除文件
+    fs.unlink(filePath, (err) => {
+        if (err) {
+            logger.error(`删除文件失败：${err.message}`);
+            return res.status(500).json({ error: '删除文件失败' });
+        }
+        logger.info(`成功删除文件：${filePath}`);
+        res.json({ message: '文件删除成功' });
+    });
+
+}));
+
 export default router;
 
 
