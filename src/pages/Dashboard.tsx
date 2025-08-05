@@ -10,6 +10,10 @@ type UserUsage = { name: string, size: string};
 function parseSize(sizeStr: string): number {
     const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
     if (!match) return 0;
+    // 如果已经是数值类型了，直接返回
+    if (!isNaN(Number(sizeStr))) {
+        return Number(sizeStr);
+    }
     const [_, numStr, , unit] = match;
     const num = parseFloat(numStr);
     const unitMap: Record<string, number> = {
@@ -93,7 +97,6 @@ export default function Dashboard() {
                 console.log("DEBUGGING");
                 console.log(data.usage);
                 setUserUsage(data.usage || []);
-                console.log(userUsage);
             });
     }, []);
     useEffect(() => {
