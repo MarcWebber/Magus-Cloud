@@ -8,14 +8,13 @@ type FileItem = { name: string, size: string, mtime: string };
 type UserUsage = { name: string, size: string};
 
 function parseSize(sizeStr: string): number {
-    const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
-    if (!match) return 0;
-    // 如果已经是数值类型了，直接返回
     if (!isNaN(Number(sizeStr))) {
         console.log(`直接解析大小: ${sizeStr}`);
         return Number(sizeStr);
     }
-    //
+    const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
+    if (!match) return 0;
+    // 如果已经是数值类型了，直接返回
     console.log(`解析大小: ${sizeStr} => ${match}`);
     const [_, numStr, , unit] = match;
     const num = parseFloat(numStr);
