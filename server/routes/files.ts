@@ -141,6 +141,7 @@ router.get('/usage', authenticateToken, (req, res) => {
             return { user, size };
         });
 
+        logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
         res.json({usage:usage});
     }catch (err){
         logger.error(`获取用户用量失败：${err.message}`);

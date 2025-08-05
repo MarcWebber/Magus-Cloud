@@ -9,6 +9,7 @@ export async function getDirectorySize(userDir){
                 return {size: stat.size, name};
             }
         )
+        logger.info(`获取目录大小：${userDir}，文件数量：${files.length}`);
         return files.reduce((total, file) => total + file.size, 0);
 
     }catch (err) {
