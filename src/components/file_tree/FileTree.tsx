@@ -5,8 +5,8 @@ import {Tree, NodeApi, NodeRendererProps, TreeApi} from 'react-arborist';
 import Styles from './FileTree.module.css';
 import {handleDownload} from '../../utils';
 import {extMap} from "../../constants.ts";
-import ShareModal from "../share/ShareModal.tsx";
-import DeleteModal from "../share/DeleteModal.tsx";
+import Share from "../actions/Share.tsx";
+import Delete from "../actions/Delete.tsx";
 
 export type FileTreeNode = {
     id: string;
@@ -199,13 +199,13 @@ function CustomNode({
                 )}
             </div>
 
-            <ShareModal
+            <Share
                 fileName={node.data.name || ''}
                 visible={shareVisible}
                 onClose={() => setShareVisible(false)}
             />
-            <DeleteModal fileName={node.data.name || ''} visible={deleteVisible}
-                         onClose={() => setDeleteVisible(false)}/>
+            <Delete fileName={node.data.name || ''} visible={deleteVisible}
+                    onClose={() => setDeleteVisible(false)}/>
         </div>
     );
 }

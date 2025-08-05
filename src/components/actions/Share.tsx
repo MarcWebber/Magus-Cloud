@@ -1,6 +1,6 @@
-// ShareModal.tsx
+// Share.tsx
 import React, { useEffect, useState } from 'react';
-import Styles from './ShareModal.module.css';
+import Styles from './Share.module.css';
 
 type ShareModalProps = {
     fileName: string;
@@ -8,7 +8,7 @@ type ShareModalProps = {
     onClose: () => void;
 };
 
-export default function ShareModal({ fileName, visible, onClose }: ShareModalProps) {
+export default function Share({ fileName, visible, onClose }: ShareModalProps) {
     const [link, setLink] = useState('');
     const [curlCommand, setCurlCommand] = useState('');
 

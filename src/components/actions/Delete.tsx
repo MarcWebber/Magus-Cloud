@@ -1,7 +1,7 @@
 import {useState} from "react";
-import Styles from './DeleteModal.module.css';
+import Styles from './Delete.module.css';
 
-export default function DeleteModal({fileName,visible,onClose}: { fileName: string, visible: boolean, onClose: () => void }) {
+export default function Delete({fileName,visible,onClose}: { fileName: string, visible: boolean, onClose: () => void }) {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const handleDelete = async () => {
