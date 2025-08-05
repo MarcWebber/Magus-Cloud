@@ -10,7 +10,11 @@ export async function getDirectorySize(userDir){
             }
         )
         logger.info(`获取目录大小：${userDir}，文件数量：${files.length}`);
-        return files.reduce((total, file) => total + file.size, 0);
+        // total size in bytes
+        const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+        logger.info(`目录大小：${totalSize} 字节`);
+        // return size in MB
+        return totalSize / (1024 * 1024); // 转换为 MB
 
     }catch (err) {
         logger.error(`获取目录大小失败：${err.message}`);
