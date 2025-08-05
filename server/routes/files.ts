@@ -138,7 +138,8 @@ router.get('/usage', authenticateToken, async (req, res) => {
         const usage = await Promise.all(users.map(async user => {
             const userDir = path.join(rootDir, user);
             const size = await getDirectorySize(userDir);
-            return {user, size};
+            const name = user;
+            return {name, size};
         }));
 
         logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);

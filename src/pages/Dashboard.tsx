@@ -12,8 +12,11 @@ function parseSize(sizeStr: string): number {
     if (!match) return 0;
     // 如果已经是数值类型了，直接返回
     if (!isNaN(Number(sizeStr))) {
+        console.log(`直接解析大小: ${sizeStr}`);
         return Number(sizeStr);
     }
+    //
+    console.log(`解析大小: ${sizeStr} => ${match}`);
     const [_, numStr, , unit] = match;
     const num = parseFloat(numStr);
     const unitMap: Record<string, number> = {
