@@ -14,7 +14,7 @@ export async function getDirectorySize(userDir){
         const totalSize = files.reduce((sum, file) => sum + file.size, 0);
         logger.info(`目录大小：${totalSize} 字节`);
         // return size in MB
-        return totalSize / (1024 * 1024); // 转换为 MB
+        return totalSize / (1024); // 转换为 KB
 
     }catch (err) {
         logger.error(`获取目录大小失败：${err.message}`);

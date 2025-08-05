@@ -93,6 +93,7 @@ export default function Dashboard() {
                 console.log("DEBUGGING");
                 console.log(data.usage);
                 setUserUsage(data.usage || []);
+                console.log(userUsage);
             });
     }, []);
     useEffect(() => {
