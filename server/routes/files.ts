@@ -124,28 +124,28 @@ router.post('/delete', ...useGuard(authenticateToken, (req, res) => {
 }));
 
 // 获取总体的用量情况，按人分组
-router.get('/usage', authenticateToken, (req, res) => {
+router.get('/usage', authenticateToken, async (req, res) => {
     if (isDev) {
-        return res.json( DevEnvGetUserUsage() );
+        return res.json(DevEnvGetUserUsage());
     }
     const rootDir = isDev ? path.join(__dirname, '../uploads') : `/www/wwwroot`;
     // calculate the total size of files for each user
-    try{
+    try {
         const users = fs.readdirSync(rootDir).filter(name => {
             return fs.statSync(path.join(rootDir, name)).isDirectory();
         });
 
-        const usage = users.map(user => {
+        const usage = await Promise.all(users.map(async user => {
             const userDir = path.join(rootDir, user);
-            const size = getDirectorySize(userDir);
-            return { user, size };
-        });
+            const size = await getDirectorySize(userDir);
+            return {user, size};
+        }));
 
         logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
-        res.json({usage:usage});
-    }catch (err){
+        res.json({usage: usage});
+    } catch (err) {
         logger.error(`获取用户用量失败：${err.message}`);
-        res.status(500).json({ error: '无法获取用户用量信息' });
+        res.status(500).json({error: '无法获取用户用量信息'});
     }
 });
 
