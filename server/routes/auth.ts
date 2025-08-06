@@ -77,4 +77,66 @@ router.post('/login', async (req, res) => {
 });
 
 
+/**
+ * 以下是飞书登录
+ */
+
+router.get('/feishu-login', (req, res) => {
+    // windows 的 fallback
+    logger.info(`${process.env.FEISHU_APP_ID}`);
+    logger.info('飞书登录请求');
+    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${process.env.FEISHU_APP_ID}&redirect_uri=${encodeURIComponent(process.env.FEISHU_REDIRECT_URI)}`;
+    res.redirect(authUrl);
+});
+
+// 飞书登录接口回调
+router.get('/feishu-callback', async (req, res) => {
+    try {
+        logger.info('飞书登录回调');
+        const {code} = req.query;
+        logger.info(`飞书登录回调，收到code: ${code}`);
+        // 获得acc_token
+        const tokenResponse = await fetch(`https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal`, {
+            method: 'POST',
+            // grant_type: 'authorization_code',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                grant_type: 'authorization_code',
+                code: code,
+                app_id: process.env.FEISHU_APP_ID,
+                app_secret: process.env.FEISHU_APP_SECRET,
+            }),
+            // grant_type: 'authorization_code',
+        });
+        const tokenJson = tokenResponse.ok ? await tokenResponse.json() : {};
+        const { app_access_token } = tokenJson;
+
+        logger.info(`飞书 App Access Token: ${app_access_token}`);
+
+
+        const userResponse = await fetch(`https://open.feishu.cn/open-apis/authen/v1/access_token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${app_access_token}`,
+            },
+            body: JSON.stringify({
+                // grant_type: 'authorization_code',
+                // code: code,
+                // app_id: process.env.FEISHU_APP_ID,
+                // app_secret: process.env.FEISHU_APP_SECRET,
+                grant_type: 'authorization_code',
+                code: code,
+            }),
+        });
+        const userInfo = userResponse.ok ? await userResponse.json() : {};
+        logger.info(`飞书用户信息: ${JSON.stringify(userInfo)}`);
+    } catch (err) {
+        logger.error(`飞书登录异常: ${err.message}`);
+        return res.status(500).json({error: '飞书登录失败'});
+    }
+
+});
 export default router;

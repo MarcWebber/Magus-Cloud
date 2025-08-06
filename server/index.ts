@@ -9,7 +9,8 @@ import backdoorRoutes from './routes/backdoor';
 
 const app = express();
 const PORT = 3000;
-
+// 使用dotenv
+require('dotenv').config();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
 
