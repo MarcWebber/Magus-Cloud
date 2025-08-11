@@ -18,6 +18,7 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use(cookieParser());
 app.use('/api', authRoutes);
 app.use('/api', fileRoutes);
+app.use('/api', authRoutes);
 app.use('/api/backdoor', backdoorRoutes);
 // fallback路由
 app.use((req, res) => {

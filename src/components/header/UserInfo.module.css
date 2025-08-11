@@ -1,0 +1,17 @@
+.userInfo {
+    position: fixed;
+    top: 10px;
+    right: 20px;
+}
+
+.welcomeText {
+    font-weight: bold;
+}
+
+.userAvatar {
+    cursor: pointer;
+}
+
+.settingsButton {
+    cursor: pointer;
+}

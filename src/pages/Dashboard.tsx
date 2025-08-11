@@ -3,9 +3,10 @@ import {useEffect, useState} from 'react';
 import "../styles/Dashboard.css";
 import type {FileTreeNode} from "../components/file_tree/FileTree.tsx";
 import FileTree from "../components/file_tree/FileTree.tsx";
+import UserInfo from "../components/header/UserInfo.tsx";
 
 type FileItem = { name: string, size: string, mtime: string };
-type UserUsage = { name: string, size: string};
+type UserUsage = { name: string, size: string };
 
 function parseSize(sizeStr: string): number {
     if (!isNaN(Number(sizeStr))) {
@@ -185,6 +186,7 @@ export default function Dashboard() {
     });
     return (
         <div className="dashboard-container">
+            <UserInfo/>
             <h2>文件存储概览</h2>
             <p>个人磁盘用量: {usage}</p>
             <div className="storage-bar">
@@ -212,16 +214,20 @@ export default function Dashboard() {
             <ul className="storage-bar">
                 {userUsage.map((usage, idx) => (
                     <div key={idx}
-                            className="storage-segment"
-                            style={{width: `${parseSize(usage.size) / totalSize * 100}%`, backgroundColor: colorPalette[idx % colorPalette.length]}}
-                            title={`${usage.name}: ${usage.size}`}>
+                         className="storage-segment"
+                         style={{
+                             width: `${parseSize(usage.size) / totalSize * 100}%`,
+                             backgroundColor: colorPalette[idx % colorPalette.length]
+                         }}
+                         title={`${usage.name}: ${usage.size}`}>
                     </div>
                 ))}
             </ul>
             <ul className={"storage-legend"}>
                 {userUsage.map((usage, idx) => (
                     <li key={idx}>
-                        <span className="legend-dot" style={{backgroundColor: colorPalette[idx % colorPalette.length]}}></span>
+                        <span className="legend-dot"
+                              style={{backgroundColor: colorPalette[idx % colorPalette.length]}}></span>
                         {usage.name} - {usage.size}
                     </li>
                 ))}

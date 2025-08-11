@@ -36,6 +36,7 @@ export default function FileTree({
                                      onMove,
                                      onDelete,
                                  }: Props) {
+    console.log('FileTree rendered with data:', data);
     const treeRef = useRef<TreeApi<FileTreeNode> | null>(null);
     const expandOrCollapseAll = (expand: boolean) => {
         const tree = treeRef.current;

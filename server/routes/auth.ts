@@ -7,7 +7,11 @@ import {registerUser, changePassword, loginUser} from '../services/userService';
 import {authenticateToken, useGuard} from "../middleware/authenticationToken";
 
 const router = Router();
+const isDev = process.env.NODE_ENV === 'development';
 
+/**
+ * Deprecated
+ */
 router.post('/check-name', (req, res) => {
     const realName = toPinyin(`${req.body.realName}`);
     logger.info(`检查用户是否允许注册: ${realName}`);
@@ -18,6 +22,9 @@ router.post('/check-name', (req, res) => {
     }
 });
 
+/**
+ * Deprecated
+ */
 router.post('/register', async (req, res) => {
     const {realName, password} = req.body;
     try {
@@ -28,7 +35,9 @@ router.post('/register', async (req, res) => {
     }
 });
 
-
+/**
+ * Deprecated
+ */
 router.post('/change-password', authenticateToken, async (req, res) => {
     const {username, newPassword} = req.body;
     try {
@@ -39,7 +48,9 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     }
 });
 
-// 登录
+/**
+ * Deprecated
+ */
 router.post('/login', async (req, res) => {
     const {username, password} = req.body;
     logger.info(`用户尝试登录: ${username},使用密码: ${password ? '已提供' : '未提供'}`);
@@ -111,7 +122,7 @@ router.get('/feishu-callback', async (req, res) => {
             // grant_type: 'authorization_code',
         });
         const tokenJson = tokenResponse.ok ? await tokenResponse.json() : {};
-        const { app_access_token } = tokenJson;
+        const {app_access_token} = tokenJson;
 
         logger.info(`飞书 App Access Token: ${app_access_token}`);
 
@@ -133,6 +144,37 @@ router.get('/feishu-callback', async (req, res) => {
         });
         const userInfo = userResponse.ok ? await userResponse.json() : {};
         logger.info(`飞书用户信息: ${JSON.stringify(userInfo)}`);
+        const username = userInfo.data.en_name; // 假设user_id是唯一标识符
+
+
+        const token = jwt.sign({username}, JWT_SECRET, {expiresIn: JWT_EXPIRATION});
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            // TODO 在dev环境下可以设置为false
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: JWT_EXPIRATION_MS //
+        });
+        // 获得用户头像
+        const avatarUrl = userInfo.data.avatar_url;
+        logger.info(`飞书用户头像: ${avatarUrl}`);
+        logger.info(`飞书用户 ${username} 登录成功，签发JWT`);
+        // 如果pure-ftpd用户不存在，则注册一个
+        const exists = allowed_name_list.includes(username) && current_name_set.has(username);
+        if (!exists) {
+            if (isDev) return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?token=${token}`);
+            try {
+                await registerUser(username, 'feishu_default_password');
+                logger.info(`飞书用户 ${username} 注册成功`);
+            } catch (err) {
+                logger.error(`飞书用户 ${username} 注册失败: ${err.message}`);
+                return res.status(500).json({error: '飞书用户注册失败'});
+            }
+        } else {
+            logger.info(`飞书用户 ${username} 已存在，跳过注册`);
+        }
+        // 回到主页
+        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?token=${token}`);
     } catch (err) {
         logger.error(`飞书登录异常: ${err.message}`);
         return res.status(500).json({error: '飞书登录失败'});
