@@ -36,6 +36,10 @@ export default function FileTree({
                                      onMove,
                                      onDelete,
                                  }: Props) {
+   
+
+  
+    console.log(data);                                 
     const treeRef = useRef<TreeApi<FileTreeNode> | null>(null);
     const expandOrCollapseAll = (expand: boolean) => {
         const tree = treeRef.current;
@@ -166,7 +170,7 @@ function CustomNode({
                             onClick={(e) => {
                                 e.stopPropagation();
                                 console.log('下载', node.data.name);
-                                handleDownload(node.data.name); // 调用下载函数，传入文件名
+                                handleDownload(node.data.name,node.data.type); // 调用下载函数，传入文件名
                             }}
                         >
                             ⬇️

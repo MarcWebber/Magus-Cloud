@@ -1,11 +1,15 @@
 // src/pages/Dashboard.tsx
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import "../styles/Dashboard.css";
 import type {FileTreeNode} from "../components/file_tree/FileTree.tsx";
 import FileTree from "../components/file_tree/FileTree.tsx";
+import { config } from 'process';
 
-type FileItem = { name: string, size: string, mtime: string };
+
+type FileItem = { name: string, size: string, mtime: string ,type: 'file' | 'folder', children?: FileItem[]};
 type UserUsage = { name: string, size: string};
+
+
 
 function parseSize(sizeStr: string): number {
     if (!isNaN(Number(sizeStr))) {
@@ -33,30 +37,62 @@ function pageDataToTreeData(files: FileItem[]) {
     console.log(files);
 
     files.forEach(file => {
+        console.log(`文件名: ${file.name}`);
         const parts = file.name.split('/');
         let currentLevel = tree;
 
         parts.forEach((part, index) => {
+            const isLeaf = index === parts.length - 1; // 是否是最终节点（文件/文件夹）
+
             let node = currentLevel.find(n => n.name === part);
             if (!node) {
+                const id = parts.slice(0, index + 1).join('/'); 
                 node = {
-                    id: `${parts.slice(0, index + 1).join('-')}`,
+                    // id: `${parts.slice(0, index + 1).join('-')}`,
+                    id,
                     name: part,
                     children: [],
-                    type: index === parts.length - 1 ? 'file' : 'folder',
-                    size: file.size,
-                    mtime: file.mtime.replace('T', ' ').replace('Z', ''),
+                    type: isLeaf ? file.type : 'folder', 
+                    size: isLeaf ? file.size : undefined,
+                    mtime: isLeaf ? file.mtime.replace('T', ' ').replace('Z', '') : undefined,
                 };
                 currentLevel.push(node);
             }
-            if (index === parts.length - 1) {
-            }
+            // if (index === parts.length - 1) {
+            // }
             currentLevel = node.children!;
         });
     })
     return tree;
 }
+/**
+ * 递归为树形结构的每个节点添加唯一 ID（保留后端已有 children）
+ * @param nodes 后端返回的文件列表（含文件夹的 children）
+ * @param parentId 父节点 ID（递归传递，初始为空）
+ * @returns 带唯一 ID 的树形结构
+ */
+function addIdsToTree(nodes: FileItem[], parentId = ""): FileTreeNode[] {
+  return nodes.map((node, index) => {
+    // 生成唯一 ID：父 ID + 节点名称（保证层级唯一性，如 "1/2/3"）
+    const id = parentId ? `${parentId}/${node.name}` : node.name; 
 
+    const newNode: FileTreeNode = {
+      id,
+      name: node.name,
+      type: node.type,
+      size: node.size,
+      mtime: node.mtime.replace('T', ' ').replace('Z', ''),
+      children: [], // 先初始化，再填充子节点
+    };
+
+    // 若为文件夹，且后端返回了 children（递归处理子节点）
+    if (node.type === 'folder' && Array.isArray(node.children)) {
+      newNode.children = addIdsToTree(node.children, id);
+    }
+
+    return newNode;
+  });
+}
 
 const colorPalette = [
     '#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336',
@@ -71,11 +107,21 @@ export default function Dashboard() {
     const [usage, setUsage] = useState('');
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFolderFiles, setSelectedFolderFiles] = useState<FileList | null>(null);
+    const [selectedFolderName, setSelectedFolderName] = useState('');
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
+    const folderInputRef = useRef<HTMLInputElement>(null);
 
     const [data, setData] = useState<FileTreeNode[]>([]);
+    useEffect(() => {
+    // 强制设置文件夹选择属性（确保浏览器识别）
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('directory', '');
+      folderInputRef.current.setAttribute('webkitdirectory', '');
+    }
+  }, []);
 
 
     // 三个useEffect，一个用于获取文件列表和磁盘用量，一个更新文件树，另一个用于按照文件类型计算总站用
@@ -85,6 +131,8 @@ export default function Dashboard() {
         })
             .then(res => res.json())
             .then(data => {
+                // 🔴 打印接口返回的原始数据
+                console.log('前端接收的原始数据:', JSON.stringify(data, null, 2));
                 setFiles(data.files || []);
                 setUsage(data.usage || '')
             })
@@ -102,7 +150,9 @@ export default function Dashboard() {
             });
     }, []);
     useEffect(() => {
-        setData(pageDataToTreeData(files));
+        console.log('files',files);
+        
+        setData(addIdsToTree(files));
         if (files.length > 0) {
             const fileTypes: Record<string, number> = {};
             files.forEach(file => {
@@ -121,19 +171,74 @@ export default function Dashboard() {
         if (e.target.files && e.target.files.length > 0) {
             // TODO 一个奇怪的报错，但是不影响
             setSelectedFile(e.target.files[0]);
+            setSelectedFolderFiles(null);
+            setSelectedFolderName('');
             setUploadError('');
         }
     };
 
-    const handleUpload = () => {
-        if (!selectedFile) return;
+    const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setSelectedFolderFiles(e.target.files);
+            setSelectedFile(null);
+            setUploadError('');
+            // 打印所有文件的相对路径（关键：确认是否带层级）
+            Array.from(e.target.files).forEach(file => {
+                console.log('前端待上传的文件路径:', file.webkitRelativePath); 
+                // 预期格式："文件夹名/子文件夹名/文件名.后缀"（如 "test/07/calculateDays.py"）
+            });
+            // 提取文件夹名称
+            if (e.target.files[0].webkitRelativePath) {
+                const pathParts = e.target.files[0].webkitRelativePath.split('/');
+                if (pathParts.length > 0) {
+                    setSelectedFolderName(pathParts[0]);
+                }
+            }
+            
+        }
+    };
+
+    const handleUpload = (isFolder = false) => {
+        if ((!selectedFile && !selectedFolderFiles) || uploading) return;
 
         setUploading(true);
         setUploadError('');
         setUploadProgress(0);
 
         const formData = new FormData();
-        formData.append('file', selectedFile);
+        
+        if (isFolder && selectedFolderFiles) {
+            // 添加文件夹中的所有文件
+            Array.from(selectedFolderFiles).forEach(file => {
+                const newFile = new File([file], file.webkitRelativePath); 
+                formData.append('folderFiles', newFile);
+                // formData.append('folderFiles', file, file.webkitRelativePath);
+                console.log('添加到FormData的路径:', file.webkitRelativePath); // 再次确认路径
+            });
+            // 🌟 关键：遍历 FormData 查看 folderFiles 字段的所有内容
+        console.log('\n=== FormData 中 folderFiles 的所有内容 ===');
+        let index = 0;
+        // 遍历 FormData 的所有条目
+        for (const [key, value] of formData.entries()) {
+        // 筛选出键为 folderFiles 的条目
+            if (key === 'folderFiles') {
+                index++;
+        // value 是 File 对象，可获取其名称、路径等属性
+            const file = value as File;
+            console.log(`文件 ${index}:`);
+            console.log('  字段名:', key);
+            console.log('  文件名:', file.name); // 原始文件名（不含路径）
+            console.log('  相对路径:', file.webkitRelativePath); // 前端传递的完整路径（含 07/）
+            console.log('  文件大小:', file.size + ' bytes');
+            console.log('  MIME类型:', file.type);
+            }
+        }
+            // 添加文件夹名称
+            formData.append('folderName', selectedFolderName);
+        } else if (selectedFile) {
+            // 单个文件上传
+            formData.append('file', selectedFile);
+        }
 
         const xhr = new XMLHttpRequest();
 
@@ -146,15 +251,20 @@ export default function Dashboard() {
 
         xhr.onload = () => {
             if (xhr.status === 200) {
+                // 上传成功，重新获取文件列表
                 fetch('/api/files', {
-                    credentials: 'include' // 确保发送cookie
+                    credentials: 'include'
                 })
                     .then(res => res.json())
                     .then(data => {
                         setFiles(data.files || []);
                         setUsage(data.usage || '');
                     });
+                
+                // 重置选择状态
                 setSelectedFile(null);
+                setSelectedFolderFiles(null);
+                setSelectedFolderName('');
                 setUploadProgress(0);
             } else {
                 setUploadError(`上传失败（状态码：${xhr.status}）`);
@@ -167,8 +277,9 @@ export default function Dashboard() {
             setUploading(false);
         };
 
-        // 设置cookie
-        xhr.open('POST', '/api/upload', true);
+        // 设置请求
+        const url = isFolder ? '/api/upload-folder' : '/api/upload';
+        xhr.open('POST', url, true);
         xhr.withCredentials = true;
         xhr.send(formData);
     };
@@ -176,13 +287,16 @@ export default function Dashboard() {
     const totalSize = files.reduce((sum, f) => sum + parseSize(f.size), 0);
     const segments = Object.entries(filesByType).map((name, idx) => {
         const size = filesByType[name[0]];
-        const percent = (size / totalSize) * 100;
+        const percent = totalSize > 0 ? (size / totalSize) * 100 : 0;
         return {
             name: name[0],
             percent,
             color: colorPalette[idx % colorPalette.length]
         };
     });
+    
+    // 计算总用量
+    const totalUsageSize = userUsage.reduce((sum, u) => sum + parseSize(u.size), 0);
     return (
         <div className="dashboard-container">
             <h2>文件存储概览</h2>
@@ -207,17 +321,19 @@ export default function Dashboard() {
             </ul>
 
             <h2>总体磁盘概览</h2>
-            {/*TODO 这里需要计算总用量*/}
-            <p>总用量: </p>
-            <ul className="storage-bar">
+            <p>总用量: {totalUsageSize > 0 ? `${(totalUsageSize / (1024 ** 3)).toFixed(2)} GB` : '0 GB'}</p>
+            <div className="storage-bar">
                 {userUsage.map((usage, idx) => (
                     <div key={idx}
                             className="storage-segment"
-                            style={{width: `${parseSize(usage.size) / totalSize * 100}%`, backgroundColor: colorPalette[idx % colorPalette.length]}}
+                            style={{
+                                width: `${totalUsageSize > 0 ? (parseSize(usage.size) / totalUsageSize * 100) : 0}%`,
+                                backgroundColor: colorPalette[idx % colorPalette.length]
+                            }}
                             title={`${usage.name}: ${usage.size}`}>
                     </div>
                 ))}
-            </ul>
+            </div>
             <ul className={"storage-legend"}>
                 {userUsage.map((usage, idx) => (
                     <li key={idx}>
@@ -228,6 +344,7 @@ export default function Dashboard() {
             </ul>
 
             <div className="upload-section">
+                {/* 单个文件上传 */}
                 <input
                     type="file"
                     id="file-upload"
@@ -235,21 +352,45 @@ export default function Dashboard() {
                     onChange={handleFileChange}
                 />
                 <label htmlFor="file-upload" className="upload-btn">
-                    {uploading ? '上传中...' : '选择文件'}
+                    选择文件
                 </label>
-                {selectedFile && (
-                    <span className="selected-file">{selectedFile.name}</span>
+                
+                {/* 文件夹上传 */}
+                <input
+                    ref={folderInputRef}
+                    type="file"
+                    id="folder-upload"
+                    style={{display: 'none'}}
+                    onChange={handleFolderChange}
+                    // webkitdirectory
+                    // directory
+                />
+                <label htmlFor="folder-upload" className="upload-btn">
+                    选择文件夹
+                </label>
+                
+                {/* 显示选中的文件或文件夹 */}
+                {(selectedFile || selectedFolderName) && (
+                    <span className="selected-file">
+                        {selectedFile ? selectedFile.name : `文件夹: ${selectedFolderName}`}
+                    </span>
                 )}
+                
+                {/* 上传按钮 */}
                 <button
                     className="upload-btn"
-                    onClick={handleUpload}
-                    disabled={!selectedFile || uploading}
+                    onClick={() => handleUpload(!!selectedFolderFiles)}
+                    disabled={(uploading) || (!selectedFile && !selectedFolderFiles)}
                 >
                     {uploading ? '上传中...' : '开始上传'}
                 </button>
+                
+                {/* 错误信息 */}
                 {uploadError && (
                     <div className="upload-error">{uploadError}</div>
                 )}
+                
+                {/* 上传进度条 */}
                 {uploading && (
                     <div className="upload-progress-bar">
                         <div
@@ -259,6 +400,7 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
+            
             <div className="file-tree-container">
                 <FileTree data={data}/>
             </div>
