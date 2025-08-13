@@ -4,11 +4,12 @@ import Styles from './Share.module.css';
 
 type ShareModalProps = {
     fileName: string;
+    type: 'file' | 'folder'; // 新增：文件类型（用于后端下载接口）
     visible: boolean;
     onClose: () => void;
 };
 
-export default function Share({ fileName, visible, onClose }: ShareModalProps) {
+export default function Share({ fileName, type,visible, onClose }: ShareModalProps) {
     const [link, setLink] = useState('');
     const [curlCommand, setCurlCommand] = useState('');
 
@@ -75,3 +76,4 @@ export default function Share({ fileName, visible, onClose }: ShareModalProps) {
         </div>
     );
 }
+

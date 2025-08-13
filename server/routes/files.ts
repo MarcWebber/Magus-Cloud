@@ -164,13 +164,14 @@ router.get('/download', authenticateToken, async (req: Request, res: Response) =
   try {
     const stats = fs.statSync(resourcePath);
     console.log('typeParam',typeParam)
+    console.log('nameParam',typeParam)
     
     // 如果是文件下载
     if (typeParam === 'file' && stats.isFile()) {
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader(
         'Content-Disposition', 
-        `attachment; filename="${encodeURIComponent(nameParam)}"`
+        `attachment; filename="${encodeURIComponent(path.basename(nameParam))}"`
       );
       res.setHeader('Content-Length', stats.size);
 
@@ -193,7 +194,10 @@ router.get('/download', authenticateToken, async (req: Request, res: Response) =
       const archive = archiver('zip', {
         zlib: { level: 9 } // 最高压缩级别
       });
+
       
+      const folderName = path.basename(resourcePath);
+
       // 处理压缩过程中的错误
       output.on('error', (err) => {
         logger.error(`ZIP输出错误：${err.message}`);
@@ -215,7 +219,7 @@ router.get('/download', authenticateToken, async (req: Request, res: Response) =
           res.setHeader('Content-Type', 'application/zip');
           res.setHeader(
             'Content-Disposition', 
-            `attachment; filename="${encodeURIComponent(`${nameParam}.zip`)}"`
+            `attachment; filename="${encodeURIComponent(`${folderName}.zip`)}"`
           );
           res.setHeader('Content-Length', zipStats.size);
           
@@ -242,7 +246,7 @@ router.get('/download', authenticateToken, async (req: Request, res: Response) =
       // 开始压缩文件夹
       archive.pipe(output);
       logger.info(`开始压缩文件夹：${resourcePath} -> ${tempZipPath}`);
-      archive.directory(resourcePath, nameParam); // 压缩包内包含「nameParam（如07）」文件夹
+      archive.directory(resourcePath, folderName); // 压缩包内包含「nameParam（如07）」文件夹
       archive.finalize();
       
       return;
@@ -269,37 +273,103 @@ function cleanupTempFile(filePath: string) {
   }
 }
     
-    
-
-router.post('/delete', ...useGuard(authenticateToken, (req, res) => {
+router.post('/delete', useGuard(authenticateToken, async (req, res) => {
     const { filename } = req.body;
     if (!filename) {
         return res.status(400).json({ error: '缺少文件名' });
     }
-    // 确定文件存储路径（与上传路径一致）
+    console.log('delete filepath',req.body);
+
+    // 确定文件存储路径
     const userDir = isDev
         ? path.join(__dirname, '../uploads') // 开发环境
         : `/www/wwwroot/${req.username || `default`}`; // 生产环境
 
-    const filePath = path.join(userDir, decodeURIComponent(filename));
-
-    // 检查文件是否存在
-    if (!fs.existsSync(filePath)) {
-        logger.error(`文件不存在：${filePath}`);
-        return res.status(404).json({ error: '文件不存在' });
+    // 关键修复：使用path.resolve确保路径正确解析
+    const targetPath = path.resolve(userDir, decodeURIComponent(filename));
+    
+    // 安全检查：确保不会删除用户目录之外的文件
+    if (!targetPath.startsWith(userDir)) {
+        logger.error(`尝试访问用户目录外的文件：${targetPath}`);
+        return res.status(403).json({ error: '操作不允许' });
     }
 
-    // 删除文件
-    fs.unlink(filePath, (err) => {
-        if (err) {
-            logger.error(`删除文件失败：${err.message}`);
-            return res.status(500).json({ error: '删除文件失败' });
-        }
-        logger.info(`成功删除文件：${filePath}`);
-        res.json({ message: '文件删除成功' });
-    });
+    // 检查目标是否存在
+    try {
+        await fs.promises.access(targetPath);
+    } catch {
+        logger.error(`目标不存在：${targetPath}`);
+        return res.status(404).json({ error: '目标不存在' });
+    }
 
+    // 递归删除函数 - 增加详细错误日志
+    const deleteRecursive = async (pathToDelete) => {
+        try {
+            const stats = await fs.promises.stat(pathToDelete);
+            
+            if (stats.isDirectory()) {
+                const files = await fs.promises.readdir(pathToDelete);
+                for (const file of files) {
+                    const curPath = path.join(pathToDelete, file);
+                    await deleteRecursive(curPath);
+                }
+                await fs.promises.rmdir(pathToDelete);
+                logger.debug(`已删除目录：${pathToDelete}`);
+            } else {
+                await fs.promises.unlink(pathToDelete);
+                logger.debug(`已删除文件：${pathToDelete}`);
+            }
+        } catch (err) {
+            logger.error(`删除${pathToDelete}失败：${err.message}`);
+            throw err; // 继续抛出错误让上层处理
+        }
+    };
+
+    // 执行删除操作
+    try {
+        await deleteRecursive(targetPath);
+        logger.info(`成功删除：${targetPath}`);
+        res.json({ message: '删除成功' });
+    } catch (err) {
+        logger.error(`删除失败：${err.message}`);
+        // 返回更具体的错误信息
+        res.status(500).json({ 
+            error: '删除失败',
+            details: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
+    }
 }));
+
+
+// router.post('/delete', ...useGuard(authenticateToken, (req, res) => {
+//     const { filename } = req.body;
+//     if (!filename) {
+//         return res.status(400).json({ error: '缺少文件名' });
+//     }
+//     // 确定文件存储路径（与上传路径一致）
+//     const userDir = isDev
+//         ? path.join(__dirname, '../uploads') // 开发环境
+//         : `/www/wwwroot/${req.username || `default`}`; // 生产环境
+
+//     const filePath = path.join(userDir, decodeURIComponent(filename));
+
+//     // 检查文件是否存在
+//     if (!fs.existsSync(filePath)) {
+//         logger.error(`文件不存在：${filePath}`);
+//         return res.status(404).json({ error: '文件不存在' });
+//     }
+
+//     // 删除文件
+//     fs.unlink(filePath, (err) => {
+//         if (err) {
+//             logger.error(`删除文件失败：${err.message}`);
+//             return res.status(500).json({ error: '删除文件失败' });
+//         }
+//         logger.info(`成功删除文件：${filePath}`);
+//         res.json({ message: '文件删除成功' });
+//     });
+
+// }));
 
 // 获取总体的用量情况，按人分组
 router.get('/usage', authenticateToken, async (req, res) => {

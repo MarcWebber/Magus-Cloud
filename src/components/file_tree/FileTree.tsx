@@ -169,8 +169,8 @@ function CustomNode({
                             style={{cursor: 'pointer'}}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('下载', node.data.name);
-                                handleDownload(node.data.name,node.data.type); // 调用下载函数，传入文件名
+                                console.log('下载', node.data.id);
+                                handleDownload(node.data.id,node.data.type); // 调用下载函数，传入文件名
                             }}
                         >
                             ⬇️
@@ -204,11 +204,12 @@ function CustomNode({
             </div>
 
             <Share
-                fileName={node.data.name || ''}
+                fileName={node.data.id || ''}
                 visible={shareVisible}
+                type={node.data.type}
                 onClose={() => setShareVisible(false)}
             />
-            <Delete fileName={node.data.name || ''} visible={deleteVisible}
+            <Delete fileName={node.data.id || ''} visible={deleteVisible}
                     onClose={() => setDeleteVisible(false)}/>
         </div>
     );
