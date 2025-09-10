@@ -46,3 +46,6 @@ ngrok config add-authtoken XXX
 
 ## 线上
 待定如何线上部署
+
+# 环境配置
+所有的基础环境配置在.env中，需要按情况修改

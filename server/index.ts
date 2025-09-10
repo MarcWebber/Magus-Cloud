@@ -5,6 +5,7 @@ import logger from './logger';
 import {DevEnvLoadCurrentPureUsers, loadCurrentPureUsers} from './utils/loadUsers';
 import authRoutes from './routes/auth';
 import fileRoutes from './routes/files';
+import userRoutes from './routes/user';
 import backdoorRoutes from './routes/backdoor';
 
 const app = express();
@@ -18,7 +19,7 @@ app.use(express.static(path.join(__dirname, '../dist')));
 app.use(cookieParser());
 app.use('/api', authRoutes);
 app.use('/api', fileRoutes);
-app.use('/api', authRoutes);
+app.use('/api', userRoutes);
 app.use('/api/backdoor', backdoorRoutes);
 // fallback路由
 app.use((req, res) => {

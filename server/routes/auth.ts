@@ -149,30 +149,37 @@ router.get('/feishu-callback', async (req, res) => {
 
         const token = jwt.sign({username}, JWT_SECRET, {expiresIn: JWT_EXPIRATION});
 
+
+        // 获得用户头像
+        const avatarUrl = userInfo.data.avatar_url;
+        logger.info(`飞书用户头像: ${avatarUrl}`);
+        logger.info(`飞书用户 ${username} 登录成功，签发JWT`);
         res.cookie('token', token, {
             httpOnly: true,
             // TODO 在dev环境下可以设置为false
             secure: process.env.NODE_ENV === 'production',
             maxAge: JWT_EXPIRATION_MS //
         });
-        // 获得用户头像
-        const avatarUrl = userInfo.data.avatar_url;
-        logger.info(`飞书用户头像: ${avatarUrl}`);
-        logger.info(`飞书用户 ${username} 登录成功，签发JWT`);
+        res.cookie('avatarUrl', avatarUrl,{
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: JWT_EXPIRATION_MS //
+        })
         // 如果pure-ftpd用户不存在，则注册一个
         const exists = allowed_name_list.includes(username) && current_name_set.has(username);
-        if (!exists) {
-            if (isDev) return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?token=${token}`);
-            try {
-                await registerUser(username, 'feishu_default_password');
-                logger.info(`飞书用户 ${username} 注册成功`);
-            } catch (err) {
-                logger.error(`飞书用户 ${username} 注册失败: ${err.message}`);
-                return res.status(500).json({error: '飞书用户注册失败'});
-            }
-        } else {
-            logger.info(`飞书用户 ${username} 已存在，跳过注册`);
-        }
+        // if (!exists) {
+        //     if (isDev) return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?token=${token}`);
+        //     try {
+        //         await registerUser(username, 'feishu_default_password');
+        //         logger.info(`飞书用户 ${username} 注册成功`);
+        //     } catch (err) {
+        //         logger.error(`飞书用户 ${username} 注册失败: ${err.message}`);
+        //         return res.status(500).json({error: '飞书用户注册失败'});
+        //     }
+        // } else {
+        //     logger.info(`飞书用户 ${username} 已存在，跳过注册`);
+        // }
+        logger.info(`token: ${token}`)
         // 回到主页
         res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard?token=${token}`);
     } catch (err) {

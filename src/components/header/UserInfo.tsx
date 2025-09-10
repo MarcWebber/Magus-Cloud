@@ -14,13 +14,9 @@ export default function UserInfo() {
             method: 'POST',
             credentials: 'include', // 确保发送cookie
         }).then(
-            response => {
-                if (!response.ok) {
-                    throw new Error('网络错误或未登录');
-                }
-                return response.json();
-            }
+            res => res.json()
         ).then(data => {
+            console.log('获取用户信息:', data);
             setUsername(data.username || '用户');
             setAvatarUrl(data.avatarUrl || 'https://s1-imfile.feishucdn.com/static-resource/v1/v3_00lb_a9a7ffbc-dc7b-461a-bef9-a67cfc9ed39g~?image_size=72x72&cut_type=&quality=&format=image&sticker_format=.webp');
         }).catch(error => {
