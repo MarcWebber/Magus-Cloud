@@ -12,7 +12,7 @@ router.post('/user/me', (req, res) => {
         if (err) {
             return res.status(403).json({error: 'Token 无效'});
         }
-        const username = user;
+        const username = user.username;
         const avatarUrl = req.cookies?.avatarUrl || '';
         logger.info(`用户信息请求: ${username}, 头像URL: ${avatarUrl ? '已提供' : '未提供'}`);
         // ok
