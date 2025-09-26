@@ -25,17 +25,23 @@
     text-decoration: underline;
 }
 
-.tree-node-actions{
+.tree-node-actions {
+    /* 保留原有的样式 */
     margin-left: 10px;
-    /* display: none; */
+    display: none; /* 恢复默认隐藏，hover时显示 */
     padding: 2px 6px;
     background: #f0f0f0;
     border: 1px solid #ccc;
     cursor: pointer;
     border-radius: 4px;
+    
+    /* 新增：设置堆叠层级，确保在最上层 */
+    position: relative; /* 关键：创建定位上下文，让z-index生效 */
+    z-index: 10; /* 较大的z-index值，确保超过其他元素的堆叠层级 */
 }
 
-.tree-node-item:hover .tree-node-actions{
+/* hover时显示操作按钮的逻辑保持不变 */
+.tree-node-item:hover .tree-node-actions {
     display: flex;
 }
 
@@ -71,6 +77,7 @@ TODO 不能自适应*/
 }
 
 .node-time{
+  
     position: fixed;
     left: 500px;
 }

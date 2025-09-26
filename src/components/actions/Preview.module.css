@@ -1,0 +1,328 @@
+/* 遮罩层 */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  overflow: auto;
+}
+
+/* 模态框容器 */
+.modal {
+  width: 100%;
+  max-width: 1200px;
+  height: 100%;
+  max-height: 85vh;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 头部区域 */
+.header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8fafc;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 20px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #64748b;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* 内容区域：关键改动 */
+.content {
+  flex: 1 1 auto;
+  min-height: 0; /* 防止flex子项塌陷 */
+  padding: 20px;
+  background-color: #f8fafc;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* 加载状态 */
+.loading {
+  color: #64748b;
+  font-size: 16px;
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loading::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border: 3px solid #cbd5e1;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* 错误状态 */
+.error {
+  color: #dc2626;
+  font-size: 16px;
+  padding: 40px;
+  text-align: center;
+  max-width: 600px;
+}
+
+/* 空状态 */
+.empty {
+  color: #64748b;
+  font-size: 16px;
+  padding: 40px;
+}
+
+/* 不支持的类型 */
+.unsupported {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+}
+
+.filename {
+  color: #1e293b;
+  font-family: monospace;
+  margin-top: 10px;
+  word-break: break-all;
+}
+
+/* 图片预览 */
+.image-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.image-preview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* PDF预览 */
+.pdf-container {
+  flex: 1;
+  min-height: 0;
+}
+
+.pdf-preview {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* 视频预览 */
+.video-container {
+  flex: 1;
+  min-height: 0;
+  max-width: 1000px;
+}
+
+.video-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* 音频预览 */
+.audio-container {
+  width: 100%;
+  max-width: 600px;
+  padding: 20px;
+}
+
+.audio-preview {
+  width: 100%;
+  padding: 10px 0;
+}
+
+/* 文本内容容器 */
+.text-container {
+  flex: 1;
+  min-height: 0;
+  max-width: 1000px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: auto;
+}
+
+/* 文本预览 */
+.text-preview {
+  padding: 20px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.6;
+  color: #1e293b;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 代码预览 */
+.code-preview {
+  padding: 20px;
+  margin: 0;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  background-color: #f8fafc;
+  border-radius: 4px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* JSON预览 */
+.json-preview {
+  padding: 20px;
+  margin: 0;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+  background-color: #f8fafc;
+  border-radius: 4px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Markdown预览 */
+.markdown-preview {
+  padding: 20px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.8;
+  color: #1e293b;
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  color: #0f172a;
+}
+
+.markdown-preview p {
+  margin: 1em 0;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.markdown-preview code {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  background-color: #f1f5f9;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* 动画 */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .modal {
+    max-height: 90vh;
+  }
+  
+  .header {
+    padding: 12px 16px;
+  }
+  
+  .content {
+    padding: 12px;
+  }
+  
+  .text-preview,
+  .code-preview,
+  .json-preview {
+    padding: 16px;
+    font-size: 13px;
+  }
+}
+
+.word-container {
+  padding: 16px;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.word-content {
+  white-space: pre-wrap;
+}
+
+/* HTML 预览容器与 iframe 必须占满可用空间 */
+.html-container {
+  flex: 1 1 auto;      /* 让它在 .content 的 flex 布局中扩展 */
+  min-height: 0;       /* 防止在 flex 容器里塌陷 */
+  width: 100%;
+  display: flex;
+}
+
+.html-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
