@@ -1,5 +1,5 @@
 // src/components/file_tree/FileTree.tsx
-import React, {useRef} from 'react';
+import React, {useRef, useState} from 'react';
 
 import {Tree, NodeApi, NodeRendererProps, TreeApi} from 'react-arborist';
 import Styles from './FileTree.module.css';
@@ -7,6 +7,7 @@ import {handleDownload} from '../../utils';
 import {extMap} from "../../constants.ts";
 import Share from "../actions/Share.tsx";
 import Delete from "../actions/Delete.tsx";
+import Preview from '../actions/Preview.tsx';
 
 export type FileTreeNode = {
     id: string;
@@ -51,12 +52,38 @@ export default function FileTree({
             tree.closeAll();
         }
     };
+    // 添加预览相关状态
+    const [previewVisible, setPreviewVisible] = useState(false);
+    const [currentPreviewFile, setCurrentPreviewFile] = useState<{
+        id: string;
+        name: string;
+        type: 'file';
+    } | null>(null);
 
     function onClickDelete(node: NodeApi<FileTreeNode>) {
     }
 
     function onClickDownload(node: NodeApi<FileTreeNode>) {
     }
+    // 打开预览
+    const handleOpenPreview = (node: NodeApi<FileTreeNode>) => {
+        console.log('handleOpenPreview被调用，node数据:', node.data); // 添加日志
+        if (node.data.type === 'file') {
+            setCurrentPreviewFile({
+                id: node.data.id,
+                name: node.data.name,
+                type: 'file'
+            });
+            setPreviewVisible(true);
+            console.log('预览状态更新：', { previewVisible: true, currentPreviewFile: node.data.name }); // 确认状态更新
+        }
+    };
+
+    // 关闭预览
+    const handleClosePreview = () => {
+        setPreviewVisible(false);
+        setCurrentPreviewFile(null);
+    };
 
     return (
         <div className={Styles['file-tree-container']}>
@@ -89,8 +116,17 @@ export default function FileTree({
                     node.data.name.toLowerCase().includes(term.toLowerCase())
                 }
             >
-                {(props) => <CustomNode {...props} />}
+                {(props) => <CustomNode {...props} onPreview={handleOpenPreview} />}
             </Tree>
+            {currentPreviewFile && (
+                <Preview
+                    visible={previewVisible}
+                    fileId={currentPreviewFile.id}
+                    fileName={currentPreviewFile.name}
+                    fileType={currentPreviewFile.type}
+                    onClose={handleClosePreview}
+                />
+            )}
         </div>
     );
 }
@@ -100,8 +136,10 @@ function CustomNode({
                         style,
                         dragHandle,
                         onSelect,
+                        onPreview, // 接收预览回调
                     }: NodeRendererProps<FileTreeNode> & {
     onSelect?: (node: NodeApi<FileTreeNode>) => void;
+    onPreview?: (node: NodeApi<FileTreeNode>) => void;
 }) {
     const isFolder = node.data.type === 'folder';
     const [shareVisible, setShareVisible] = React.useState(false);
@@ -159,8 +197,22 @@ function CustomNode({
                 {node.data.mtime || '--'}
             </div>
             {/*</div>*/}
-
+            
             <div className={Styles['tree-node-actions']}>
+                {/* 预览按钮 */}
+                {!isFolder && (
+                    <span
+                        title="预览"
+                        style={{cursor: 'pointer', marginRight: '8px'}}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            console.log('预览按钮被点击，node数据:', node.data); // 添加日志
+                            onPreview?.(node); // 触发预览
+                        }}
+                    >
+                    👁️
+                    </span>
+                )}
                 {/*TODO: 文件夹提供别的下载方式*/}
                 {(
                     <>
@@ -188,7 +240,7 @@ function CustomNode({
                             🗑️
                         </span>
 
-                        {<span
+                        <span
                             title="分享"
                             style={{cursor: 'pointer'}}
                             onClick={(e) => {
@@ -198,7 +250,7 @@ function CustomNode({
                             }}
                         >
                             📤
-                        </span>}
+                        </span>
                     </>
                 )}
             </div>
