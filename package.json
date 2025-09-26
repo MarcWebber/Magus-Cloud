@@ -1,7 +1,7 @@
 {
   "name": "ftp-admin-panel",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "commonjs",
   "scripts": {
     "build": "tsc && vite build",
@@ -17,7 +17,7 @@
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^24.0.15",
+    "@types/node": "^24.5.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/react-router-dom": "^5.3.3",
@@ -25,11 +25,16 @@
     "cross-env": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "webpack": "^5.101.0",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
     "archiver": "^7.0.1",
+    "@ant-design/icons": "^6.0.0",
+    "antd": "^5.26.7",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.532.0",

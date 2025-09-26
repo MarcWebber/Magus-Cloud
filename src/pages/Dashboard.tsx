@@ -299,6 +299,7 @@ export default function Dashboard() {
     const totalUsageSize = userUsage.reduce((sum, u) => sum + parseSize(u.size), 0);
     return (
         <div className="dashboard-container">
+            {/* <UserInfo/> */}
             <h2>文件存储概览</h2>
             <p>个人磁盘用量: {usage}</p>
             <div className="storage-bar">
@@ -337,7 +338,8 @@ export default function Dashboard() {
             <ul className={"storage-legend"}>
                 {userUsage.map((usage, idx) => (
                     <li key={idx}>
-                        <span className="legend-dot" style={{backgroundColor: colorPalette[idx % colorPalette.length]}}></span>
+                        <span className="legend-dot"
+                              style={{backgroundColor: colorPalette[idx % colorPalette.length]}}></span>
                         {usage.name} - {usage.size}
                     </li>
                 ))}

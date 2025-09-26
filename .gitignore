@@ -29,3 +29,5 @@ dist-ssr
 /tests
 # 日志
 /logs
+# 环境配置
+.env

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import {useState} from 'react';
+import {useNavigate} from 'react-router-dom';
 import "../page-style.css"
+// import FeishuLogin from "../components/feishu/FeishuLogin.tsx";
 
 export default function Login() {
     const [username, setUsername] = useState('');
@@ -16,10 +17,9 @@ export default function Login() {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({username, password}),
                 // credentials: 'include' // 确保发送cookie
             });
-
             const result = await response.json();
             if (response.ok && result.success) {
                 e.preventDefault();
@@ -28,10 +28,15 @@ export default function Login() {
                 alert(result.error || '登录失败');
             }
         } catch (error) {
-            console.error('❌ 登录请求异常:', error);
-            alert('服务器异常，登录失败');
+            // TODO 异常fallback
         }
     };
+
+    const handleFeishuLogin = () => {
+        // 这里可以添加飞书登录逻辑
+        // 例如，重定向到飞书的登录页面
+        window.location.href = '/api/feishu-login';
+    }
 
     const handleRegister = (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,12 +52,14 @@ export default function Login() {
             </div>
             <div>
                 <label>密码：</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required  />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} required/>
             </div>
             <div className="button-group">
-                <button type="submit">登录</button>
-                <button type="button" onClick={handleRegister}>注册</button>
+                {/*<button type="submit">登录</button>*/}
+                {/*<button type="button" onClick={handleRegister}>注册</button>*/}
+                <button type="button" onClick={handleFeishuLogin}>飞书登录</button>
+                {/*<button type="button" onClick={handleFeishuLogin}*/}
             </div>
         </form>
-    );
+);
 }
