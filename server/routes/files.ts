@@ -97,82 +97,187 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), (r
   }
 });
 
-// // 新增：文件下载接口
-// router.get('/download', authenticateToken, (req, res) => {
-//   const { filename } = req.query;
-//   if (!filename) {
-//     return res.status(400).json({ error: '缺少文件名' });
-//   }
 
-//   // 确定文件存储路径（与上传路径一致）
-//   const userDir = isDev 
-//     ? path.join(__dirname, '../uploads') // 开发环境
-//     : `/www/wwwroot/${req.username || `default`}`; // 生产环境
-
-//   const filePath = path.join(userDir, decodeURIComponent(filename as string));
-
-//   // 检查文件是否存在
-//   if (!fs.existsSync(filePath)) {
-//     logger.error(`文件不存在：${filePath}`);
-//     return res.status(404).json({ error: '文件不存在' });
-//   }
-
-//   // 检查是否为文件（避免下载目录）
-//   const stats = fs.statSync(filePath);
-//   if (!stats.isFile()) {
-//     return res.status(400).json({ error: '不支持下载目录' });
-//   }
-
-//   // 设置响应头（关键：让浏览器识别为下载）
-//   res.setHeader('Content-Type', 'application/octet-stream');
-//   res.setHeader(
-//     'Content-Disposition', 
-//     `attachment; filename="${encodeURIComponent(filename as string)}"`
-//   );
-//   res.setHeader('Content-Length', stats.size);
-
-//   // 流式传输文件（适合大文件）
-//   const fileStream = fs.createReadStream(filePath);
-//   fileStream.pipe(res);
-//   fileStream.on('error', (err) => {
-//     logger.error(`文件读取失败：${err.message}`);
-//     res.status(500).json({ error: '文件读取失败' });
-//   });
-// });
 // 新增：文件下载接口（支持文件和文件夹）
-router.get('/download', authenticateToken, async (req: Request, res: Response) => {
-  // 从查询参数中获取并验证name和type
-  const nameParam = req.query.name;
-  const typeParam = req.query.type;
+// router.get('/download', authenticateToken, async (req: Request, res: Response) => {
+//   // 从查询参数中获取并验证name和type
+//   const nameParam = req.query.name;
+//   const typeParam = req.query.type;
 
-  // 验证参数是否为字符串
-  if (typeof nameParam !== 'string' || typeof typeParam !== 'string') {
-    return res.status(400).json({ error: '参数格式错误，需要字符串类型' });
-  }
+//   // 验证参数是否为字符串
+//   if (typeof nameParam !== 'string' || typeof typeParam !== 'string') {
+//     return res.status(400).json({ error: '参数格式错误，需要字符串类型' });
+//   }
 
-  if (!nameParam || !typeParam) {
-    return res.status(400).json({ error: '缺少参数：name或type' });
-  }
+//   if (!nameParam || !typeParam) {
+//     return res.status(400).json({ error: '缺少参数：name或type' });
+//   }
 
-  // 确定资源存储路径
-  const userDir = isDev
-    ? path.join(__dirname, '../uploads') // 开发环境
-    : `/www/wwwroot/${req.username || 'default'}`; // 生产环境
+//   // 确定资源存储路径
+//   const userDir = isDev
+//     ? path.join(__dirname, '../uploads') // 开发环境
+//     : `/www/wwwroot/${req.username || 'default'}`; // 生产环境
 
-  const resourcePath = path.join(userDir, decodeURIComponent(nameParam));
+//   const resourcePath = path.join(userDir, decodeURIComponent(nameParam));
 
-  // 检查资源是否存在
-  if (!fs.existsSync(resourcePath)) {
-    logger.error(`资源不存在：${resourcePath}`);
-    return res.status(404).json({ error: '资源不存在' });
-  }
+//   // 检查资源是否存在
+//   if (!fs.existsSync(resourcePath)) {
+//     logger.error(`资源不存在：${resourcePath}`);
+//     return res.status(404).json({ error: '资源不存在' });
+//   }
 
+//   try {
+//     const stats = fs.statSync(resourcePath);
+//     console.log('typeParam', typeParam)
+//     console.log('nameParam', typeParam)
+
+//     // 如果是文件下载
+//     if (typeParam === 'file' && stats.isFile()) {
+//       res.setHeader('Content-Type', 'application/octet-stream');
+//       res.setHeader(
+//         'Content-Disposition',
+//         `attachment; filename="${encodeURIComponent(path.basename(nameParam))}"`
+//       );
+//       res.setHeader('Content-Length', stats.size);
+
+//       const fileStream = fs.createReadStream(resourcePath);
+//       fileStream.pipe(res);
+
+//       fileStream.on('error', (err) => {
+//         logger.error(`文件读取失败：${err.message}`);
+//         res.status(500).json({ error: '文件读取失败' });
+//       });
+
+//       return;
+//     }
+
+//     // 如果是文件夹下载
+//     if (typeParam === 'folder' && stats.isDirectory()) {
+//       // 创建临时ZIP文件
+//       const tempZipPath = path.join(tmpdir(), `${uuidv4()}.zip`);
+//       const output = fs.createWriteStream(tempZipPath);
+//       const archive = archiver('zip', {
+//         zlib: { level: 9 } // 最高压缩级别
+//       });
+
+
+//       const folderName = path.basename(resourcePath);
+
+//       // 处理压缩过程中的错误
+//       output.on('error', (err) => {
+//         logger.error(`ZIP输出错误：${err.message}`);
+//         cleanupTempFile(tempZipPath);
+//         return res.status(500).json({ error: '压缩文件创建失败' });
+//       });
+
+//       archive.on('error', (err) => {
+//         logger.error(`压缩错误：${err.message}`);
+//         cleanupTempFile(tempZipPath);
+//         return res.status(500).json({ error: '文件夹压缩失败' });
+//       });
+
+//       // 完成压缩后发送文件
+//       output.on('close', () => {
+//         try {
+//           const zipStats = fs.statSync(tempZipPath);
+
+//           res.setHeader('Content-Type', 'application/zip');
+//           res.setHeader(
+//             'Content-Disposition',
+//             `attachment; filename="${encodeURIComponent(`${folderName}.zip`)}"`
+//           );
+//           res.setHeader('Content-Length', zipStats.size);
+
+//           const zipStream = fs.createReadStream(tempZipPath);
+//           zipStream.pipe(res);
+
+//           // 发送完成后删除临时文件
+//           zipStream.on('end', () => {
+//             cleanupTempFile(tempZipPath);
+//           });
+
+//           zipStream.on('error', (err) => {
+//             logger.error(`ZIP文件读取失败：${err.message}`);
+//             cleanupTempFile(tempZipPath);
+//             res.status(500).json({ error: '压缩文件读取失败' });
+//           });
+//         } catch (err) {
+//           logger.error(`处理压缩文件失败：${err.message}`);
+//           cleanupTempFile(tempZipPath);
+//           res.status(500).json({ error: '处理压缩文件失败' });
+//         }
+//       });
+
+//       // 开始压缩文件夹
+//       archive.pipe(output);
+//       logger.info(`开始压缩文件夹：${resourcePath} -> ${tempZipPath}`);
+//       archive.directory(resourcePath, folderName); // 压缩包内包含「nameParam（如07）」文件夹
+//       archive.finalize();
+
+//       return;
+//     }
+
+//     // 如果类型不匹配（例如请求文件但实际是文件夹）
+//     return res.status(400).json({ error: '资源类型不匹配' });
+
+//   } catch (error) {
+//     logger.error(`下载处理失败：${error.message}`);
+//     return res.status(500).json({ error: '服务器处理下载失败' });
+//   }
+// });
+// 修改原下载接口：同时支持登录用户和分享链接下载
+router.get('/download', async (req: Request, res: Response) => {
   try {
-    const stats = fs.statSync(resourcePath);
-    console.log('typeParam', typeParam)
-    console.log('nameParam', typeParam)
+    const nameParam = req.query.name as string;
+    const typeParam = req.query.type as string;
+    // 仅保留shareId参数（移除accessCode）
+    const shareId = req.query.shareId as string;
 
-    // 如果是文件下载
+    // 验证基础参数
+    if (!nameParam || !typeParam) {
+      return res.status(400).json({ error: '缺少name或type参数' });
+    }
+
+    // 区分两种模式：登录用户下载 / 分享链接下载
+    let userDir: string;
+    if (shareId) { // 模式1：通过分享链接下载（仅需shareId）
+      // 验证分享有效性
+      const shareRecord = shareStore.find(item => item.shareId === shareId);
+      if (!shareRecord) {
+        return res.status(404).json({ error: '分享链接不存在' });
+      }
+      if (shareRecord.expireAt < Date.now()) {
+        return res.status(403).json({ error: '分享已过期' });
+      }
+      // 移除accessCode的校验（因为分享已无提取码）
+      
+      // 验证分享的资源是否匹配请求的资源
+      if (shareRecord.fileName !== nameParam || shareRecord.type !== typeParam) {
+        return res.status(400).json({ error: '分享资源不匹配' });
+      }
+      // 获取分享者的目录
+      userDir = isDev 
+        ? path.join(__dirname, '../uploads') 
+        : `/www/wwwroot/${shareRecord.username}`;
+    } else {
+      // 模式2：登录用户下载（原有逻辑不变）
+      const authResult = await new Promise((resolve) => {
+        authenticateToken(req, res, (err) => resolve(err ? false : true));
+      });
+      if (!authResult) return; // 认证失败会由中间件直接返回响应
+      userDir = isDev 
+        ? path.join(__dirname, '../uploads') 
+        : `/www/wwwroot/${req.username || 'default'}`;
+    }
+
+    // 后续逻辑完全复用原下载处理（文件/文件夹判断、流式传输等）
+    const resourcePath = path.resolve(userDir, decodeURIComponent(nameParam));
+    if (!fs.existsSync(resourcePath)) {
+      return res.status(404).json({ error: '资源不存在' });
+    }
+
+    const stats = fs.statSync(resourcePath);
+    // 文件下载
     if (typeParam === 'file' && stats.isFile()) {
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader(
@@ -180,93 +285,47 @@ router.get('/download', authenticateToken, async (req: Request, res: Response) =
         `attachment; filename="${encodeURIComponent(path.basename(nameParam))}"`
       );
       res.setHeader('Content-Length', stats.size);
-
       const fileStream = fs.createReadStream(resourcePath);
       fileStream.pipe(res);
-
       fileStream.on('error', (err) => {
         logger.error(`文件读取失败：${err.message}`);
         res.status(500).json({ error: '文件读取失败' });
       });
-
       return;
     }
 
-    // 如果是文件夹下载
+    // 文件夹下载（压缩为ZIP）
     if (typeParam === 'folder' && stats.isDirectory()) {
-      // 创建临时ZIP文件
       const tempZipPath = path.join(tmpdir(), `${uuidv4()}.zip`);
       const output = fs.createWriteStream(tempZipPath);
-      const archive = archiver('zip', {
-        zlib: { level: 9 } // 最高压缩级别
-      });
-
+      const archive = archiver('zip', { zlib: { level: 9 } });
 
       const folderName = path.basename(resourcePath);
-
-      // 处理压缩过程中的错误
-      output.on('error', (err) => {
-        logger.error(`ZIP输出错误：${err.message}`);
-        cleanupTempFile(tempZipPath);
-        return res.status(500).json({ error: '压缩文件创建失败' });
-      });
-
-      archive.on('error', (err) => {
-        logger.error(`压缩错误：${err.message}`);
-        cleanupTempFile(tempZipPath);
-        return res.status(500).json({ error: '文件夹压缩失败' });
-      });
-
-      // 完成压缩后发送文件
       output.on('close', () => {
-        try {
-          const zipStats = fs.statSync(tempZipPath);
-
-          res.setHeader('Content-Type', 'application/zip');
-          res.setHeader(
-            'Content-Disposition',
-            `attachment; filename="${encodeURIComponent(`${folderName}.zip`)}"`
-          );
-          res.setHeader('Content-Length', zipStats.size);
-
-          const zipStream = fs.createReadStream(tempZipPath);
-          zipStream.pipe(res);
-
-          // 发送完成后删除临时文件
-          zipStream.on('end', () => {
-            cleanupTempFile(tempZipPath);
-          });
-
-          zipStream.on('error', (err) => {
-            logger.error(`ZIP文件读取失败：${err.message}`);
-            cleanupTempFile(tempZipPath);
-            res.status(500).json({ error: '压缩文件读取失败' });
-          });
-        } catch (err) {
-          logger.error(`处理压缩文件失败：${err.message}`);
-          cleanupTempFile(tempZipPath);
-          res.status(500).json({ error: '处理压缩文件失败' });
-        }
+        const zipStats = fs.statSync(tempZipPath);
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${encodeURIComponent(`${folderName}.zip`)}"`
+        );
+        res.setHeader('Content-Length', zipStats.size);
+        const zipStream = fs.createReadStream(tempZipPath);
+        zipStream.pipe(res);
+        zipStream.on('end', () => cleanupTempFile(tempZipPath));
       });
-
-      // 开始压缩文件夹
       archive.pipe(output);
-      logger.info(`开始压缩文件夹：${resourcePath} -> ${tempZipPath}`);
-      archive.directory(resourcePath, folderName); // 压缩包内包含「nameParam（如07）」文件夹
+      archive.directory(resourcePath, folderName);
       archive.finalize();
-
       return;
     }
 
-    // 如果类型不匹配（例如请求文件但实际是文件夹）
     return res.status(400).json({ error: '资源类型不匹配' });
 
-  } catch (error) {
-    logger.error(`下载处理失败：${error.message}`);
-    return res.status(500).json({ error: '服务器处理下载失败' });
+  } catch (error: any) {
+    logger.error(`下载失败：${error.message}`);
+    res.status(500).json({ error: '下载处理失败' });
   }
 });
-
 // 清理临时文件的辅助函数
 function cleanupTempFile(filePath: string) {
   if (fs.existsSync(filePath)) {
@@ -377,31 +436,55 @@ router.post('/delete', useGuard(authenticateToken, async (req, res) => {
 
 // }));
 
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
 // 获取总体的用量情况，按人分组
 router.get('/usage', authenticateToken, async (req, res) => {
-  if (isDev) {
-    return res.json(DevEnvGetUserUsage());
-  }
-  const rootDir = isDev ? path.join(__dirname, '../uploads') : `/www/wwwroot`;
-  // calculate the total size of files for each user
-  try {
-    const users = fs.readdirSync(rootDir).filter(name => {
-      return fs.statSync(path.join(rootDir, name)).isDirectory();
-    });
+    if (isDev) {
+        // 开发环境下返回模拟数据
+        return res.json(DevEnvGetUserUsage());
+    }
 
-    const usage = await Promise.all(users.map(async user => {
-      const userDir = path.join(rootDir, user);
-      const size = await getDirectorySize(userDir);
-      const name = user;
-      return { name, size };
-    }));
+    // 生产环境的根目录 (假设用户目录就在此目录下)
+    // ⚠ 注意：如果 /www/wwwroot 包含非用户目录，用量统计仍会不准确！
+    const rootDir = `/www/wwwroot`; 
 
-    logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
-    res.json({ usage: usage });
-  } catch (err) {
-    logger.error(`获取用户用量失败：${err.message}`);
-    res.status(500).json({ error: '无法获取用户用量信息' });
-  }
+    // calculate the total size of files for each user
+    try {
+        // 1. 读取 rootDir 下的所有目录作为用户
+        const users = fs.readdirSync(rootDir).filter(name => {
+            // 确保是目录，并排除隐藏文件（例如 .git, .DS_Store 等）
+            const fullPath = path.join(rootDir, name);
+            return fs.statSync(fullPath).isDirectory() && !name.startsWith('.');
+        });
+
+        const usage = await Promise.all(users.map(async user => {
+            // 🚀 修正：使用 path.join 来安全地拼接路径
+            const userDir = path.join(rootDir, user);
+            const sizeInBytes = await getDirectorySize(userDir); // 假设返回字节数 (number)
+            
+            // 💡 优化：在后端进行格式化，确保前端接收到带单位的字符串
+            const sizeFormatted = formatBytes(sizeInBytes); 
+            
+            const name = user;
+            
+            // 返回格式化后的 size 字符串，解决了前端总用量显示格式问题
+            return { name, size: sizeFormatted }; 
+        }));
+
+        logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
+        res.json({ usage: usage });
+    } catch (err) {
+        logger.error(`获取用户用量失败：${err.message}`);
+        res.status(500).json({ error: '无法获取用户用量信息' });
+    }
 });
 
 
@@ -751,6 +834,61 @@ router.get('/preview', authenticateToken, async (req: Request, res: Response) =>
     }
     (logger || console).error(`预览处理失败：${error?.message || error}`);
     return res.status(500).json({ error: '服务器处理预览失败' });
+  }
+});
+
+interface ShareRecord {
+  shareId: string;        // 唯一分享ID（如 s_8f2d7c）
+  username: string;       // 分享者用户名（关联用户目录）
+  fileName: string;       // 分享的文件名/文件夹名
+  type: 'file' | 'folder';// 资源类型
+  expireAt: number;       // 过期时间（时间戳，毫秒）
+  createdAt: number;      // 创建时间（时间戳，毫秒）
+}
+let shareStore: ShareRecord[] = []; // 内存存储（生产环境替换为数据库）
+
+// 简化版：生成分享链接（无提取码）
+router.post('/share/create', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { fileName, type } = req.body;
+    const username = req.username || 'default';
+
+    // 验证参数
+    if (!fileName || !['file', 'folder'].includes(type)) {
+      return res.status(400).json({ error: '参数错误：缺少fileName或type' });
+    }
+
+    // 验证资源存在性
+    const userDir = isDev ? path.join(__dirname, '../uploads') : `/www/wwwroot/${username}`;
+    const resourcePath = path.resolve(userDir, decodeURIComponent(fileName));
+    if (!fs.existsSync(resourcePath)) {
+      return res.status(404).json({ error: '资源不存在' });
+    }
+
+    // 生成分享信息（默认7天过期，无提取码）
+    const shareId = `s_${uuidv4().slice(0, 6)}`; // 保留短ID用于标识分享
+    const expireAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7天有效期
+
+    // 存储分享记录（移除accessCode）
+    shareStore.push({
+      shareId,
+      username,
+      fileName,
+      type,
+      expireAt, // 移除accessCode字段
+      createdAt: Date.now()
+    });
+
+    // 返回分享信息（移除accessCode）
+    res.json({
+      shareId,
+      expireAt,
+      message: '分享成功，有效期7天'
+    });
+
+  } catch (error: any) {
+    logger.error(`生成分享失败：${error.message}`);
+    res.status(500).json({ error: '生成分享链接失败' });
   }
 });
 

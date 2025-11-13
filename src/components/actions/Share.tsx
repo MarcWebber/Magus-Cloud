@@ -1,46 +1,79 @@
-// Share.tsx
 import React, { useEffect, useState } from 'react';
 import Styles from './Share.module.css';
+import axios from 'axios';
 
 type ShareModalProps = {
     fileName: string;
-    type: 'file' | 'folder'; // 新增：文件类型（用于后端下载接口）
+    type: 'file' | 'folder';
     visible: boolean;
     onClose: () => void;
 };
 
-export default function Share({ fileName, type,visible, onClose }: ShareModalProps) {
+export default function Share({ fileName, type, visible, onClose }: ShareModalProps) {
+    // 移除curlCommand相关状态
+    const [shareId, setShareId] = useState('');
     const [link, setLink] = useState('');
-    const [curlCommand, setCurlCommand] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
-        if (visible && fileName) {
-            const encoded = encodeURIComponent(fileName);
-            const baseUrl = `${window.location.origin}/api/download/${encoded}`;
-            setLink(baseUrl);
-            setCurlCommand(`curl -O "${baseUrl}"`);
+        if (!visible) {
+            // 清空状态（移除curlCommand相关）
+            setShareId('');
+            setLink('');
+            setError('');
+            return;
         }
-    }, [visible, fileName]);
 
+        if (visible && fileName) {
+            generateShareLink();
+        }
+    }, [visible, fileName, type]);
+
+    const generateShareLink = async () => {
+        try {
+            setLoading(true);
+            setError('');
+            
+            const response = await axios.post('/api/share/create', {
+                fileName,
+                type
+            });
+
+            // 从响应中获取shareId
+            const { shareId } = response.data;
+            setShareId(shareId);
+
+            // 构建下载链接（不再生成curl命令）
+            const encodedFileName = encodeURIComponent(fileName);
+            const baseUrl = window.location.origin;
+            const downloadLink = `${baseUrl}/api/download?name=${encodedFileName}&type=${type}&shareId=${shareId}`;
+            setLink(downloadLink);
+
+        } catch (err) {
+            console.error('生成分享链接失败', err);
+            setError('生成分享链接失败，请重试');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 复制文本逻辑保持不变（仅用于复制链接）
     const copyText = async (text: string) => {
         try {
-            // 现代浏览器 + HTTPS 下优先使用
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(text);
             } else {
-                // 回退方式：创建隐藏 textarea 实现复制
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
-                textarea.style.position = 'fixed'; // 避免页面抖动
+                textarea.style.position = 'fixed';
                 textarea.style.opacity = '0';
                 document.body.appendChild(textarea);
                 textarea.focus();
                 textarea.select();
-
-                const successful = document.execCommand('copy');
+                document.execCommand('copy');
                 document.body.removeChild(textarea);
             }
-
             alert('已复制到剪贴板');
         } catch (e) {
             console.error('复制失败', e);
@@ -53,27 +86,43 @@ export default function Share({ fileName, type,visible, onClose }: ShareModalPro
     return (
         <div className={Styles['mask']}>
             <div className={Styles['modal']}>
-                <h3 className={Styles['title']}>分享文件：{fileName}</h3>
-                <div className={Styles['section']}>
-                    <label className={Styles['label']}>下载链接</label>
-                    <div className={Styles['input-row']}>
-                        <input className={Styles['input']} value={link} readOnly/>
-                        <button className={Styles['copy']} onClick={() => copyText(link)}>复制链接</button>
-                    </div>
-                </div>
+                <h3 className={Styles['title']}>分享：{fileName}</h3>
+                
+                {loading && (
+                    <div className={Styles['loading']}>生成分享链接中...</div>
+                )}
 
-                <div className={Styles['section']}>
-                    <label className={Styles['label']}>命令行下载</label>
-                    <div className={Styles['input-row']}>
-                        <input className={Styles['input']} value={curlCommand} readOnly/>
-                        <button className={Styles['copy']} onClick={() => copyText(curlCommand)}>复制命令</button>
+                {error && (
+                    <div className={Styles['error']}>{error}</div>
+                )}
+
+                {/* 仅保留下载链接部分 */}
+                {!loading && !error && shareId && (
+                    <div className={Styles['section']}>
+                        <label className={Styles['label']}>下载链接</label>
+                        <div className={Styles['input-row']}>
+                            <input 
+                                className={Styles['input']} 
+                                value={link} 
+                                readOnly 
+                                placeholder="分享链接"
+                            />
+                            <button 
+                                className={Styles['copy']} 
+                                onClick={() => copyText(link)}
+                            >
+                                复制链接
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
+
                 <div className={Styles['actions']}>
-                    <button className={Styles['copy']} onClick={onClose}>关闭</button>
+                    <button className={Styles['close-btn']} onClick={onClose}>
+                        关闭
+                    </button>
                 </div>
             </div>
         </div>
     );
 }
-

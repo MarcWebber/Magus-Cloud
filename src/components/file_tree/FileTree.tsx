@@ -128,6 +128,142 @@ export default function FileTree({
     );
 }
 
+// function CustomNode({
+//                         node,
+//                         style,
+//                         dragHandle,
+//                         onSelect,
+//                         onPreview, // 接收预览回调
+//                     }: NodeRendererProps<FileTreeNode> & {
+//     onSelect?: (node: NodeApi<FileTreeNode>) => void;
+//     onPreview?: (node: NodeApi<FileTreeNode>) => void;
+// }) {
+//     const isFolder = node.data.type === 'folder';
+//     const [shareVisible, setShareVisible] = React.useState(false);
+//     const [deleteVisible, setDeleteVisible] = React.useState(false);
+
+//     const handleClick = () => {
+//         if (isFolder) {
+//             node.toggle();
+//         } else {
+//             onSelect?.(node);
+//         }
+//     };
+
+//     const handleDoubleClick = () => {
+//         if (!isFolder) {
+//             onSelect?.(node); // 可以换成 onPreview 回调
+//         }
+//     };
+
+//     const handleShare = () => {
+//         // 谈一个窗口，给出分享链接，参考百度网盘
+//         setShareVisible(true);
+//     }
+
+//     const handleDelete = () => {
+//         setDeleteVisible(true);
+//     }
+
+//     const getIcon = (name: string) => {
+//         if (isFolder) {
+//             return node.isOpen ? '📂' : '📁';
+//         }
+//         return extMap[name.split('.').pop() || ''] || '📄'; // 默认文件图标
+//     }
+
+//     return (
+//         <div
+//             ref={dragHandle}
+//             style={style}
+//             className={Styles['tree-node-item']}
+//             onClick={handleClick}
+//             onDoubleClick={handleDoubleClick}
+//         >
+//             <span>{getIcon(node.data.name)}</span>
+//             {/*<div className={Styles['node-row']}>*/}
+//             <span
+//                 className={Styles['node-name']}>{node.data.name.length > 30 ? node.data.name.slice(0, 30) + "..." : node.data.name}</span>
+//             {/* 文件大小 */}
+//             <div className={Styles['node-size']}>
+//                 {node.data.size || '--'}
+//             </div>
+
+//             {/* 上传时间 */}
+//             <div className={Styles['node-time']}>
+//                 {node.data.mtime || '--'}
+//             </div>
+//             {/*</div>*/}
+            
+//             <div className={Styles['tree-node-actions']}>
+//                 {/* 预览按钮 */}
+//                 {!isFolder && (
+//                     <span
+//                         title="预览"
+//                         style={{cursor: 'pointer', marginRight: '8px'}}
+//                         onClick={(e) => {
+//                             e.stopPropagation();
+//                             console.log('预览按钮被点击，node数据:', node.data); // 添加日志
+//                             onPreview?.(node); // 触发预览
+//                         }}
+//                     >
+//                     👁️
+//                     </span>
+//                 )}
+//                 {/*TODO: 文件夹提供别的下载方式*/}
+//                 {(
+//                     <>
+//                         <span
+//                             title="下载"
+//                             style={{cursor: 'pointer'}}
+//                             onClick={(e) => {
+//                                 e.stopPropagation();
+//                                 console.log('下载', node.data.id);
+//                                 handleDownload(node.data.id,node.data.type); // 调用下载函数，传入文件名
+//                             }}
+//                         >
+//                             ⬇️
+//                         </span>
+
+//                         <span
+//                             title="删除"
+//                             style={{cursor: 'pointer'}}
+//                             onClick={(e) => {
+//                                 e.stopPropagation();
+//                                 console.log('删除', node.data.name);
+//                                 handleDelete();
+//                             }}
+//                         >
+//                             🗑️
+//                         </span>
+
+//                         <span
+//                             title="分享"
+//                             style={{cursor: 'pointer'}}
+//                             onClick={(e) => {
+//                                 e.stopPropagation();
+//                                 console.log('分享', node.data.name);
+//                                 handleShare();
+//                             }}
+//                         >
+//                             📤
+//                         </span>
+//                     </>
+//                 )}
+//             </div>
+
+//             <Share
+//                 fileName={node.data.id || ''}
+//                 visible={shareVisible}
+//                 type={node.data.type}
+//                 onClose={() => setShareVisible(false)}
+//             />
+//             <Delete fileName={node.data.id || ''} visible={deleteVisible}
+//                     onClose={() => setDeleteVisible(false)}/>
+//         </div>
+//     );
+// }
+
 function CustomNode({
                         node,
                         style,
@@ -177,7 +313,7 @@ function CustomNode({
             ref={dragHandle}
             style={style}
             className={Styles['tree-node-item']}
-            onClick={handleClick}
+            onClick={handleClick} // <--- 问题根源：事件冒泡会触发这里
             onDoubleClick={handleDoubleClick}
         >
             <span>{getIcon(node.data.name)}</span>
@@ -194,7 +330,7 @@ function CustomNode({
                 {node.data.mtime || '--'}
             </div>
             {/*</div>*/}
-            
+
             <div className={Styles['tree-node-actions']}>
                 {/* 预览按钮 */}
                 {!isFolder && (
@@ -202,8 +338,8 @@ function CustomNode({
                         title="预览"
                         style={{cursor: 'pointer', marginRight: '8px'}}
                         onClick={(e) => {
-                            e.stopPropagation();
-                            console.log('预览按钮被点击，node数据:', node.data); // 添加日志
+                            e.stopPropagation(); // 阻止冒泡
+                            console.log('预览按钮被点击，node数据:', node.data);
                             onPreview?.(node); // 触发预览
                         }}
                     >
@@ -217,9 +353,9 @@ function CustomNode({
                             title="下载"
                             style={{cursor: 'pointer'}}
                             onClick={(e) => {
-                                e.stopPropagation();
+                                e.stopPropagation(); // 阻止冒泡
                                 console.log('下载', node.data.id);
-                                handleDownload(node.data.id,node.data.type); // 调用下载函数，传入文件名
+                                handleDownload(node.data.id, node.data.type);
                             }}
                         >
                             ⬇️
@@ -229,7 +365,7 @@ function CustomNode({
                             title="删除"
                             style={{cursor: 'pointer'}}
                             onClick={(e) => {
-                                e.stopPropagation();
+                                e.stopPropagation(); // 阻止冒泡
                                 console.log('删除', node.data.name);
                                 handleDelete();
                             }}
@@ -241,7 +377,7 @@ function CustomNode({
                             title="分享"
                             style={{cursor: 'pointer'}}
                             onClick={(e) => {
-                                e.stopPropagation();
+                                e.stopPropagation(); // 阻止冒泡
                                 console.log('分享', node.data.name);
                                 handleShare();
                             }}
@@ -252,14 +388,24 @@ function CustomNode({
                 )}
             </div>
 
-            <Share
-                fileName={node.data.id || ''}
-                visible={shareVisible}
-                type={node.data.type}
-                onClose={() => setShareVisible(false)}
-            />
-            <Delete fileName={node.data.id || ''} visible={deleteVisible}
-                    onClose={() => setDeleteVisible(false)}/>
+            {/* 解决方案：
+              添加一个包装器 div，并使用 onClick 捕获所有来自
+              Share 和 Delete 弹窗的冒泡事件，并阻止它们
+              进一步冒泡到父 div 的 handleClick。
+            */}
+            <div onClick={(e) => e.stopPropagation()}>
+                <Share
+                    fileName={node.data.id || ''}
+                    visible={shareVisible}
+                    type={node.data.type}
+                    onClose={() => setShareVisible(false)}
+                />
+                <Delete
+                    fileName={node.data.id || ''}
+                    visible={deleteVisible}
+                    onClose={() => setDeleteVisible(false)}
+                />
+            </div>
         </div>
     );
 }

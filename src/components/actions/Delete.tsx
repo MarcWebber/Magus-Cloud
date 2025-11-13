@@ -23,7 +23,9 @@ export default function Delete({fileName,visible,onClose}: { fileName: string, v
             }
 
             alert('文件已成功删除');
+            
             onClose(); // 关闭模态框
+            window.location.reload();
         } catch (error) {
             console.error('删除文件时出错:', error);
             alert(`删除失败：${(error as Error).message}`);
