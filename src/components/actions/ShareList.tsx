@@ -7,7 +7,11 @@ export type ShareItem = {
     shareId: string;
     fileName: string;
     type: 'file' | 'folder';
-    code: string;
+    // 🔥 核心修改：后端存的是 accessCode，前端之前写的是 code
+    // 这里我们做一个兼容，或者直接改名
+    accessCode?: string;
+    code?: string;
+
     clickCount: number;
     downloadCount: number;
     expireAt: number | null;
@@ -19,6 +23,7 @@ interface ShareListProps {
     onCancelShare: (shareId: string) => void;
 }
 
+// 复制按钮组件
 const CopyButton = ({ onCopy }: { onCopy: () => void }) => {
     const [isCopied, setIsCopied] = useState(false);
     const handleClick = () => {
@@ -50,21 +55,30 @@ export default function ShareList({ items, onCancelShare }: ShareListProps) {
     const handleCopyLink = (item: ShareItem) => {
         const baseUrl = window.location.origin;
 
-        // 1. 构造基础干净链接
+        // 🔥 1. 获取真实的提取码 (优先取 accessCode，兼容 code)
+        const realCode = item.accessCode || item.code || '';
+
+        // 2. 构造前端落地页 URL
         let url = `${baseUrl}/s/${item.shareId}`;
 
-        // 2. 🔥 核心修改：直接拼参数，不加额外中文描述
-        // 结果：http://domain/s/xyz?code=123
-        if (item.code) {
-            url += `?code=${item.code}`;
+        // 3. 如果有码，拼接到 URL
+        if (realCode) {
+            url += `?code=${realCode}`;
         }
 
+        // 4. 复制内容为纯 URL (根据你的最新需求：复制即是带参链接)
+        // 如果你想要 "链接: ... 提取码: ..." 格式，就解开下面注释
+        // const text = `链接: ${url} 提取码: ${realCode || '无'}`;
+
+        // 你的需求：复制出来的是 http://.../s/xxx?code=xxx
+        const text = url;
+
         if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(url)
-                .then(() => message.success('链接已复制'))
-                .catch(() => doFallbackCopy(url));
+            navigator.clipboard.writeText(text)
+                .then(() => message.success('复制成功'))
+                .catch(() => doFallbackCopy(text));
         } else {
-            doFallbackCopy(url);
+            doFallbackCopy(text);
         }
     };
 
@@ -79,7 +93,7 @@ export default function ShareList({ items, onCancelShare }: ShareListProps) {
             textArea.select();
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
-            if (successful) message.success('链接已复制');
+            if (successful) message.success('复制成功');
             else message.error('复制失败');
         } catch (err) {
             message.error('复制失败');
@@ -112,36 +126,49 @@ export default function ShareList({ items, onCancelShare }: ShareListProps) {
                 <span className={Styles.colActions}>操作</span>
             </div>
 
-            {items.map((item) => (
-                <div key={item.shareId} className={Styles.row}>
-                    <div className={Styles.colName}>
-                        <i className={`fa-solid ${item.type === 'folder' ? 'fa-folder' : 'fa-file-lines'} ${Styles.icon}`}
-                           style={{ color: item.type === 'folder' ? '#FFC107' : '#3b8cff' }}>
-                        </i>
-                        <div style={{display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
-                            <span className={Styles.fileNameText} title={item.fileName}>{item.fileName}</span>
-                            <span style={{fontSize: '12px', color: '#999', marginTop: '2px'}}>
-                                下载: {item.downloadCount || 0} 次
-                            </span>
+            {items.map((item) => {
+                // 🔥 获取要显示的提取码
+                const displayCode = item.accessCode || item.code;
+
+                return (
+                    <div key={item.shareId} className={Styles.row}>
+                        <div className={Styles.colName}>
+                            <i className={`fa-solid ${item.type === 'folder' ? 'fa-folder' : 'fa-file-lines'} ${Styles.icon}`}
+                               style={{ color: item.type === 'folder' ? '#FFC107' : '#3b8cff' }}>
+                            </i>
+                            <div style={{display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
+                                <span className={Styles.fileNameText} title={item.fileName}>
+                                    {item.fileName}
+                                </span>
+                                <span style={{fontSize: '12px', color: '#999', marginTop: '2px'}}>
+                                    下载: {item.downloadCount || 0} 次
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className={Styles.colSize} style={{fontFamily: 'monospace', color: '#333'}}>
+                            {/* 显示提取码 */}
+                            {displayCode || <span style={{color:'#ccc'}}>公开</span>}
+                        </div>
+
+                        <div className={Styles.colDate}>
+                            {formatDate(item.expireAt)}
+                        </div>
+
+                        <div className={Styles.colActions} style={{ opacity: 1 }}>
+                            <CopyButton onCopy={() => handleCopyLink(item)} />
+                            <button
+                                className={Styles.actionBtn}
+                                title="取消分享"
+                                onClick={() => onCancelShare(item.shareId)}
+                                style={{color: '#ff4d4f', borderColor: 'transparent'}}
+                            >
+                                <i className="fa-solid fa-ban"></i>
+                            </button>
                         </div>
                     </div>
-                    <div className={Styles.colSize} style={{fontFamily: 'monospace', color: '#333'}}>
-                        {item.code || <span style={{color:'#ccc'}}>公开</span>}
-                    </div>
-                    <div className={Styles.colDate}>{formatDate(item.expireAt)}</div>
-                    <div className={Styles.colActions} style={{ opacity: 1 }}>
-                        <CopyButton onCopy={() => handleCopyLink(item)} />
-                        <button
-                            className={Styles.actionBtn}
-                            title="取消分享"
-                            onClick={() => onCancelShare(item.shareId)}
-                            style={{color: '#ff4d4f', borderColor: 'transparent'}}
-                        >
-                            <i className="fa-solid fa-ban"></i>
-                        </button>
-                    </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 }
