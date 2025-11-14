@@ -37,14 +37,42 @@ export default function ShareList({ items, onCancelShare }: ShareListProps) {
     // 复制链接逻辑
     const handleCopyLink = (item: ShareItem) => {
         const baseUrl = window.location.origin;
-        // 构造下载/访问链接
-        const url = `${baseUrl}/api/download?shareId=${item.shareId}`;
+        const url = item.code
+            ? `${baseUrl}/api/download?shareId=${item.shareId}&code=${item.code}`
+            : `${baseUrl}/api/download?shareId=${item.shareId}`;
         const text = `链接: ${url} 提取码: ${item.code || '无'}`;
 
-        navigator.clipboard.writeText(text).then(() => {
-            message.success('链接已复制');
-        });
+        // 1. 尝试现代 API
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text)
+                .then(() => message.success('链接已复制'))
+                .catch(() => doFallbackCopy(text));
+        } else {
+            // 2. 直接走兼容方案
+            doFallbackCopy(text);
+        }
     };
+
+    const doFallbackCopy = (text: string) => {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            if (successful) {
+                message.success('链接已复制');
+            } else {
+                message.error('复制失败');
+            }
+        } catch (err) {
+            message.error('复制失败');
+        }
+    }
 
     // --- 空状态 ---
     if (!items || items.length === 0) {

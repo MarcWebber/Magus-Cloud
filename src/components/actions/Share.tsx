@@ -185,8 +185,9 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
             // 这里我们生成一个直接指向后端下载接口的链接
             // 实际生产中，通常是一个前端页面地址 (如 /s/shareId)
             const baseUrl = window.location.origin;
-            const url = `${baseUrl}/api/download?shareId=${shareId}`;
-
+            const url = code
+                ? `${baseUrl}/api/download?shareId=${shareId}&code=${code}`
+                : `${baseUrl}/api/download?shareId=${shareId}`;
             setShareData({
                 url,
                 code: code || ''
@@ -202,12 +203,45 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
     };
 
     // 复制功能
-    const handleCopy = (text: string) => {
-        navigator.clipboard.writeText(text)
-            .then(() => message.success('已复制'))
-            .catch(() => message.error('复制失败，请手动复制'));
-    };
+    const handleCopy = async (text: string) => {
+        try {
+            // 1. 尝试使用现代 API (需要 HTTPS 或 localhost)
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                message.success('已复制');
+                return;
+            }
+        } catch (err) {
+            console.warn('Clipboard API failed, trying fallback...', err);
+        }
 
+        // 2. 兼容方案：创建隐藏输入框选中文本 (支持 HTTP)
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+
+            // 确保输入框不可见但存在于 DOM 中
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+
+            if (successful) {
+                message.success('已复制');
+            } else {
+                message.error('复制失败，请手动复制');
+            }
+        } catch (err) {
+            console.error('Fallback copy failed', err);
+            message.error('复制失败，请手动复制');
+        }
+    };
     // 复制完整信息
     const handleCopyAll = () => {
         if (!shareData) return;

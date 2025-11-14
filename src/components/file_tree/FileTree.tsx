@@ -552,7 +552,6 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
                     {/* 操作列 (悬停显示) */}
                     <div className={Styles.colActions}>
                         {/* 文件夹通常不支持直接下载，或者逻辑不同 */}
-                        {item.type !== 'folder' && (
                             <button
                                 className={Styles.actionBtn}
                                 title="下载"
@@ -560,7 +559,6 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
                             >
                                 <i className="fa-solid fa-download"></i>
                             </button>
-                        )}
                         <button
                             className={Styles.actionBtn}
                             title="分享"
