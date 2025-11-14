@@ -1,83 +1,246 @@
-.file-tree-container {
-    font-size: 14px;
+/*.file-tree-container {*/
+/*    font-size: 14px;*/
+/*}*/
+
+/*.tree-actions button {*/
+/*    padding: 4px 8px;*/
+/*    background: #f0f0f0;*/
+/*    border: 1px solid #ccc;*/
+/*    cursor: pointer;*/
+/*    border-radius: 4px;*/
+/*}*/
+
+/*.tree-actions button:hover {*/
+/*    background: #e0e0e0;*/
+/*}*/
+
+/*.tree-node-item {*/
+/*    display: flex;*/
+/*    min-width: 500px;*/
+/*    max-width: 1000px;*/
+/*}*/
+/*!* hover样式，hover之后颜色变蓝，并添加下划线*!*/
+/*.tree-node-item:hover {*/
+/*    color: #007bff;*/
+/*    text-decoration: underline;*/
+/*}*/
+
+/*.tree-node-actions {*/
+/*    !* 保留原有的样式 *!*/
+/*    margin-left: 10px;*/
+/*    display: none; !* 恢复默认隐藏，hover时显示 *!*/
+/*    padding: 2px 6px;*/
+/*    background: #f0f0f0;*/
+/*    border: 1px solid #ccc;*/
+/*    cursor: pointer;*/
+/*    border-radius: 4px;*/
+/*    */
+/*    !* 新增：设置堆叠层级，确保在最上层 *!*/
+/*    position: relative; !* 关键：创建定位上下文，让z-index生效 *!*/
+/*    z-index: 10; !* 较大的z-index值，确保超过其他元素的堆叠层级 *!*/
+/*}*/
+
+/*!* hover时显示操作按钮的逻辑保持不变 *!*/
+/*.tree-node-item:hover .tree-node-actions {*/
+/*    display: flex;*/
+/*}*/
+
+/*.node-name{*/
+/*    display: block;*/
+/*    min-width: 250px;*/
+/*}*/
+/*!*时间与大小展示*!*/
+/*.node-label {*/
+/*    flex: 1;*/
+/*    display: flex;*/
+/*    align-items: center;*/
+/*    gap: 8px;*/
+/*    overflow: hidden;*/
+/*    white-space: nowrap;*/
+/*    text-overflow: ellipsis;*/
+/*}*/
+/*.node-size,*/
+/*.node-time {*/
+/*    width: 200px;*/
+/*    text-align: right;*/
+/*    font-size: 12px;*/
+/*    color: #666;*/
+/*    padding-left: 12px;*/
+
+/*}*/
+
+/*!*设置锚点 y =500px*/
+/*TODO 不能自适应*!*/
+/*.node-size{*/
+/*    position: fixed;*/
+/*    left: 300px;*/
+/*}*/
+
+/*.node-time{*/
+/*  */
+/*    position: fixed;*/
+/*    left: 500px;*/
+/*}*/
+
+/* src/components/file_tree/FileTree.module.css */
+
+.container {
+    width: 100%;
+    /* 使用系统默认字体，保持清爽 */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #fff;
+    border-radius: 12px; /* 和外层卡片保持一致 */
 }
 
-.tree-actions button {
-    padding: 4px 8px;
-    background: #f0f0f0;
-    border: 1px solid #ccc;
-    cursor: pointer;
-    border-radius: 4px;
-}
-
-.tree-actions button:hover {
-    background: #e0e0e0;
-}
-
-.tree-node-item {
+/* =========================================
+   表头区域
+   ========================================= */
+.header {
     display: flex;
-    min-width: 500px;
-    max-width: 1000px;
-}
-/* hover样式，hover之后颜色变蓝，并添加下划线*/
-.tree-node-item:hover {
-    color: #007bff;
-    text-decoration: underline;
-}
-
-.tree-node-actions {
-    /* 保留原有的样式 */
-    margin-left: 10px;
-    display: none; /* 恢复默认隐藏，hover时显示 */
-    padding: 2px 6px;
-    background: #f0f0f0;
-    border: 1px solid #ccc;
-    cursor: pointer;
-    border-radius: 4px;
-    
-    /* 新增：设置堆叠层级，确保在最上层 */
-    position: relative; /* 关键：创建定位上下文，让z-index生效 */
-    z-index: 10; /* 较大的z-index值，确保超过其他元素的堆叠层级 */
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f2f5;
+    color: #888;
+    font-size: 13px;
+    font-weight: 500;
+    /* 禁止表头文字换行 */
+    white-space: nowrap;
 }
 
-/* hover时显示操作按钮的逻辑保持不变 */
-.tree-node-item:hover .tree-node-actions {
+/* =========================================
+   文件行 (Row)
+   ========================================= */
+.row {
     display: flex;
+    align-items: center;
+    padding: 14px 16px; /* 增加一点舒适的间距 */
+    border-bottom: 1px solid #f9f9f9;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 6px; /* 鼠标悬停时的圆角 */
+    margin: 0 4px; /* 左右留一点缝隙给圆角显示 */
 }
 
-.node-name{
-    display: block;
-    min-width: 250px;
+/* 鼠标悬停效果：变浅蓝 */
+.row:hover {
+    background-color: #f5faff;
 }
-/*时间与大小展示*/
-.node-label {
+
+/* =========================================
+   列布局 (Flex Columns)
+   ========================================= */
+
+/* 1. 文件名列：占据剩余所有空间 (flex: 1) */
+.colName {
     flex: 1;
     display: flex;
     align-items: center;
+    gap: 12px;
+    overflow: hidden; /* 防止长文件名撑破布局 */
+    padding-right: 20px;
+}
+
+/* 2. 大小列：固定宽度 */
+.colSize {
+    width: 120px;
+    color: #a0a0a0;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* 3. 日期列：固定宽度 */
+.colDate {
+    width: 180px;
+    color: #a0a0a0;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+/* 4. 操作列：固定宽度 */
+.colActions {
+    width: 120px;
+    display: flex;
     gap: 8px;
-    overflow: hidden;
+    flex-shrink: 0;
+    justify-content: flex-end; /* 按钮靠右对齐 */
+
+    /* 关键交互：默认隐藏，不占位 */
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* 只有鼠标悬停在行上时，才显示操作按钮 */
+.row:hover .colActions {
+    opacity: 1;
+}
+
+/* =========================================
+   内容元素细节
+   ========================================= */
+
+/* 文件名文字 */
+.fileNameText {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+
+    /* 文字过长省略号 */
     white-space: nowrap;
+    overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 0.2s;
 }
-.node-size,
-.node-time {
-    width: 200px;
-    text-align: right;
-    font-size: 12px;
+
+.row:hover .fileNameText {
+    color: #3b8cff; /* 悬停时文字变蓝，符合网盘习惯 */
+}
+
+/* 文件图标 */
+.icon {
+    font-size: 24px; /* 图标稍微大一点 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* =========================================
+   操作按钮 (下载/分享/删除)
+   ========================================= */
+.actionBtn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent; /* 默认无边框 */
+    background: transparent;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #666;
-    padding-left: 12px;
-
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
 }
 
-/*设置锚点 y =500px
-TODO 不能自适应*/
-.node-size{
-    position: fixed;
-    left: 300px;
+.actionBtn:hover {
+    color: #3b8cff;
+    background-color: #eef5ff; /* 浅蓝背景 */
+    border-color: #d6e4ff;
 }
 
-.node-time{
-  
-    position: fixed;
-    left: 500px;
+/* =========================================
+   空状态 (文件夹为空时)
+   ========================================= */
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 0;
+    color: #ccc;
+}
+
+.emptyState p {
+    margin-top: 16px;
+    font-size: 14px;
 }

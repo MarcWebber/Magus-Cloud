@@ -1,19 +1,194 @@
+/*.dashboard-container {*/
+/*    max-width: 1920px;*/
+/*    min-width: 800px;*/
+/*    !*margin: auto;*!*/
+/*    font-family: sans-serif;*/
+/*    margin-left: 50px;*/
+/*    margin-right: 50px;*/
+/*}*/
+
+/*.file-tree-container {*/
+/*    font-size: 14px;*/
+/*}*/
+
+/*.storage-bar {*/
+/*    display: flex;*/
+/*    height: 24px;*/
+/*    border-radius: 6px;*/
+/*    overflow: hidden;*/
+/*    margin-bottom: 12px;*/
+/*    background-color: #e0e0e0;*/
+/*}*/
+
+/*.storage-segment {*/
+/*    height: 100%;*/
+/*    transition: width 0.5s;*/
+/*}*/
+
+/*.storage-legend {*/
+/*    list-style: none;*/
+/*    padding-left: 0;*/
+/*    display: flex;*/
+/*    flex-wrap: wrap;*/
+/*    gap: 12px;*/
+/*    font-size: 14px;*/
+/*}*/
+
+/*.legend-dot {*/
+/*    display: inline-block;*/
+/*    width: 12px;*/
+/*    height: 12px;*/
+/*    margin-right: 6px;*/
+/*    border-radius: 50%;*/
+/*}*/
+
+/*!* 上传区域容器 *!*/
+/*.upload-section {*/
+/*  display: flex;*/
+/*  align-items: center;*/
+/*  gap: 8px;*/
+/*  margin-top: 16px;*/
+/*  flex-wrap: nowrap; !* 防止自动换行 *!*/
+/*}*/
+
+/*!* 统一按钮基础样式 *!*/
+/*.upload-btn {*/
+/*  box-sizing: border-box;*/
+/*  height: 36px;*/
+/*  line-height: 36px;*/
+/*  padding: 0 14px;*/
+/*  border-radius: 4px;*/
+/*  font-size: 14px;*/
+/*  font-family: inherit;*/
+/*  cursor: pointer;*/
+/*  transition: all 0.3s ease;*/
+/*  border: none;*/
+/*}*/
+
+/*!* 选择文件按钮（label） *!*/
+/*.upload-btn[for="file-upload"] {*/
+/*  background-color: #4CAF50;*/
+/*  color: #fff;*/
+/*}*/
+
+/*!* 开始上传按钮（button） *!*/
+/*.upload-btn[type="button"] {*/
+/*  background-color: #ccc;*/
+/*  color: #666;*/
+/*}*/
+
+/*!* 悬停效果（启用状态） *!*/
+/*.upload-btn:not(:disabled):hover {*/
+/*  opacity: 0.9;*/
+/*}*/
+
+/*!* 禁用状态 *!*/
+/*.upload-btn:disabled {*/
+/*  opacity: 0.6;*/
+/*  cursor: not-allowed;*/
+/*  height: 36px;*/
+/*  line-height: 36px;*/
+/*}*/
+
+/*!* 选中的文件名显示（可选优化） *!*/
+/*.selected-file {*/
+/*  margin: 0 8px;*/
+/*  font-size: 14px;*/
+/*  color: #666;*/
+/*}*/
+
+/*!* 错误提示（可选优化） *!*/
+/*.upload-error {*/
+/*  margin-top: 8px;*/
+/*  color: #f44336;*/
+/*  font-size: 12px;*/
+/*  !* flex-basis: 100%; 强制占据一整行 *!*/
+/*}*/
+
+/*.upload-progress-bar {*/
+/*  width: 100%;*/
+/*  background-color: #eee;*/
+/*  height: 8px;*/
+/*  border-radius: 4px;*/
+/*  overflow: hidden;*/
+/*  margin-top: 8px;*/
+/*}*/
+
+/*.upload-progress-fill {*/
+/*  height: 100%;*/
+/*  background-color: #4caf50;*/
+/*  transition: width 0.3s ease;*/
+/*}*/
+
+/* src/styles/Dashboard.css */
+
+/* =========================================
+   1. 新的宏观布局 (左右分栏结构)
+   ========================================= */
+
+/* 整个页面容器：全屏，左右 Flex 布局 */
 .dashboard-container {
-    max-width: 1920px;
-    min-width: 800px;
-    /*margin: auto;*/
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden; /* 禁止整体滚动，只允许内部滚动 */
+    background-color: var(--bg-color);
     font-family: sans-serif;
-    margin-left: 50px;
-    margin-right: 50px;
+    margin: 0; /* 重置原本的 margin */
+    max-width: none; /* 移除原本的宽限制 */
+    min-width: 0;
 }
+
+/* 左侧侧边栏 */
+.sidebar-container {
+    width: 240px;
+    flex-shrink: 0;
+    background-color: var(--surface-color);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+}
+
+/* 右侧主内容区 */
+.main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* 顶部导航栏 placeholder */
+.header-area {
+    height: 64px;
+    background-color: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+}
+
+/* 右侧核心滚动区域 */
+.content-scroll-area {
+    flex: 1;
+    overflow-y: auto; /* 核心：只有这里滚动 */
+    padding: 24px;
+}
+
+
+/* =========================================
+   2. 保留你原有的组件样式 (Button, Storage, etc.)
+   ========================================= */
 
 .file-tree-container {
     font-size: 14px;
+    margin-top: 20px; /* 稍微增加间距 */
 }
 
+/* 存储条样式 */
 .storage-bar {
     display: flex;
-    height: 24px;
+    height: 24px; /* 稍微调细一点更精致，原24px */
     border-radius: 6px;
     overflow: hidden;
     margin-bottom: 12px;
@@ -32,6 +207,7 @@
     flex-wrap: wrap;
     gap: 12px;
     font-size: 14px;
+    margin-bottom: 24px; /* 增加底部间距 */
 }
 
 .legend-dot {
@@ -44,78 +220,72 @@
 
 /* 上传区域容器 */
 .upload-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-  flex-wrap: nowrap; /* 防止自动换行 */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+    flex-wrap: nowrap;
 }
 
-/* 统一按钮基础样式 */
+/* 按钮基础样式 */
 .upload-btn {
-  box-sizing: border-box;
-  height: 36px;
-  line-height: 36px;
-  padding: 0 14px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
+    box-sizing: border-box;
+    height: 36px;
+    line-height: 36px;
+    padding: 0 14px;
+    border-radius: 8px; /* 改圆一点 */
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
 }
 
-/* 选择文件按钮（label） */
+/* 颜色微调适配新风格 */
 .upload-btn[for="file-upload"] {
-  background-color: #4CAF50;
-  color: #fff;
+    background-color: var(--primary-color, #4CAF50); /* 使用新变量，兜底绿 */
+    color: #fff;
 }
 
-/* 开始上传按钮（button） */
 .upload-btn[type="button"] {
-  background-color: #ccc;
-  color: #666;
+    background-color: #e2e8f0;
+    color: #333;
 }
 
-/* 悬停效果（启用状态） */
 .upload-btn:not(:disabled):hover {
-  opacity: 0.9;
+    opacity: 0.9;
+    transform: translateY(-1px); /* 微动效 */
 }
 
-/* 禁用状态 */
 .upload-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  height: 36px;
-  line-height: 36px;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
-/* 选中的文件名显示（可选优化） */
 .selected-file {
-  margin: 0 8px;
-  font-size: 14px;
-  color: #666;
+    margin: 0 8px;
+    font-size: 14px;
+    color: #666;
 }
 
-/* 错误提示（可选优化） */
 .upload-error {
-  margin-top: 8px;
-  color: #f44336;
-  font-size: 12px;
-  /* flex-basis: 100%; 强制占据一整行 */
+    margin-top: 8px;
+    color: #f44336;
+    font-size: 12px;
 }
 
 .upload-progress-bar {
-  width: 100%;
-  background-color: #eee;
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 8px;
+    width: 100%;
+    background-color: #eee;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 8px;
 }
 
 .upload-progress-fill {
-  height: 100%;
-  background-color: #4caf50;
-  transition: width 0.3s ease;
+    height: 100%;
+    background-color: var(--primary-color, #4caf50);
+    transition: width 0.3s ease;
 }

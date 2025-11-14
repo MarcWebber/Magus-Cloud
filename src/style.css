@@ -1,96 +1,164 @@
+/*:root {*/
+/*  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;*/
+/*  line-height: 1.5;*/
+/*  font-weight: 400;*/
+
+/*  color-scheme: light dark;*/
+/*  color: rgba(255, 255, 255, 0.87);*/
+/*  background-color: #242424;*/
+
+/*  font-synthesis: none;*/
+/*  text-rendering: optimizeLegibility;*/
+/*  -webkit-font-smoothing: antialiased;*/
+/*  -moz-osx-font-smoothing: grayscale;*/
+/*}*/
+
+/*a {*/
+/*  font-weight: 500;*/
+/*  color: #646cff;*/
+/*  text-decoration: inherit;*/
+/*}*/
+/*a:hover {*/
+/*  color: #535bf2;*/
+/*}*/
+
+/*body {*/
+/*  margin: 0;*/
+/*  display: flex;*/
+/*  place-items: center;*/
+/*  min-width: 320px;*/
+/*  min-height: 100vh;*/
+/*}*/
+
+/*h1 {*/
+/*  font-size: 3.2em;*/
+/*  line-height: 1.1;*/
+/*}*/
+
+/*#app {*/
+/*  max-width: 1280px;*/
+/*  margin: 0 auto;*/
+/*  padding: 2rem;*/
+/*  text-align: center;*/
+/*}*/
+
+/*.logo {*/
+/*  height: 6em;*/
+/*  padding: 1.5em;*/
+/*  will-change: filter;*/
+/*  transition: filter 300ms;*/
+/*}*/
+/*.logo:hover {*/
+/*  filter: drop-shadow(0 0 2em #646cffaa);*/
+/*}*/
+/*.logo.vanilla:hover {*/
+/*  filter: drop-shadow(0 0 2em #3178c6aa);*/
+/*}*/
+
+/*.card {*/
+/*  padding: 2em;*/
+/*}*/
+
+/*.read-the-docs {*/
+/*  color: #888;*/
+/*}*/
+
+/*button {*/
+/*  border-radius: 8px;*/
+/*  border: 1px solid transparent;*/
+/*  padding: 0.6em 1.2em;*/
+/*  font-size: 1em;*/
+/*  font-weight: 500;*/
+/*  font-family: inherit;*/
+/*  background-color: #1a1a1a;*/
+/*  cursor: pointer;*/
+/*  transition: border-color 0.25s;*/
+/*}*/
+/*button:hover {*/
+/*  border-color: #646cff;*/
+/*}*/
+/*button:focus,*/
+/*button:focus-visible {*/
+/*  outline: 4px auto -webkit-focus-ring-color;*/
+/*}*/
+
+/*@media (prefers-color-scheme: light) {*/
+/*  :root {*/
+/*    color: #213547;*/
+/*    background-color: #ffffff;*/
+/*  }*/
+/*  a:hover {*/
+/*    color: #747bff;*/
+/*  }*/
+/*  button {*/
+/*    background-color: #f9f9f9;*/
+/*  }*/
+/*}*/
+/* src/style.css - 请替换全部内容 */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* --- 1. 核心配色 (Cloudreve 蓝) --- */
+  --primary-color: #3b8cff;      /* 主色调 */
+  --primary-hover: #2979ff;      /* 按钮悬停色 */
+  --bg-color: #f5f7fa;           /* 网页大背景：浅灰 */
+  --surface-color: #ffffff;      /* 侧边栏/卡片背景：纯白 */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* --- 2. 文字颜色 --- */
+  --text-main: #333333;          /* 主要文字 */
+  --text-sub: #888888;           /* 次要信息（日期、大小） */
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  /* --- 3. 布局与边框 --- */
+  --border-color: #eef2f6;       /* 分割线颜色 */
+  --radius: 12px;                /* 统一圆角风格 */
+
+  /* --- 4. 阴影效果 --- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* 重置基础样式 */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%; /* 确保占满全屏 */
+  font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 这一点很重要：Vite默认的 #root 是居中的，我们要改成全屏铺满 */
+#root {
+  width: 100%;
+  height: 100%;
+  text-align: left; /* 取消默认的居中对齐 */
+}
+
+/* 简单的按钮基础样式 (后续会用组件覆盖，这里做个兜底) */
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  font-family: inherit;
 }
 
 a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+  text-decoration: none;
+  color: inherit;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
 }
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #3178c6aa);
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
 }

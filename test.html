@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Cloud Drive</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #3b8cff; /* Cloudreve 经典蓝 */
+            --bg-color: #f5f7fa;      /* 浅灰背景 */
+            --surface-color: #ffffff; /* 纯白卡片 */
+            --text-main: #333333;
+            --text-sub: #888888;
+            --border-color: #eef2f6;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- 1. 左侧侧边栏 (Sidebar) --- */
+        .sidebar {
+            width: 240px;
+            background: var(--surface-color);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .logo-area {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .logo-area i { margin-right: 10px; font-size: 24px; }
+
+        .nav-menu {
+            flex: 1;
+            padding: 20px 12px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            color: #555;
+            text-decoration: none;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover { background-color: #eff6ff; color: var(--primary-color); }
+        .nav-item.active {
+            background-color: #eef5ff;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        .nav-item i { width: 24px; margin-right: 10px; }
+
+        /* 底部存储条 (Cloudreve 风格重点) */
+        .storage-widget {
+            padding: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+        .storage-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-bottom: 8px;
+        }
+        .progress-bg {
+            height: 8px;
+            background-color: #edf2f7;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            /* 漂亮的渐变色 */
+            background: linear-gradient(90deg, #3b8cff 0%, #60a5fa 100%);
+            border-radius: 4px;
+        }
+
+        /* --- 2. 右侧主内容区 (Main) --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 顶部导航条 */
+        .top-header {
+            height: 70px;
+            background: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        .breadcrumb {
+            font-size: 16px;
+            color: var(--text-sub);
+        }
+        .breadcrumb span { cursor: pointer; transition: color 0.2s; }
+        .breadcrumb span:hover { color: var(--primary-color); }
+        .breadcrumb .separator { margin: 0 8px; color: #ddd; }
+        .breadcrumb .current { color: var(--text-main); font-weight: 500; cursor: default; }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .avatar {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: flex; align-items: center; justify-content: center;
+            color: #555;
+        }
+
+        /* 文件操作与列表区 */
+        .scroll-container {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .btn-group { display: flex; gap: 12px; }
+
+        .btn {
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 10px rgba(59, 140, 255, 0.3);
+        }
+        .btn-primary:hover { background: #2979ff; }
+
+        .btn-white {
+            background: white;
+            color: var(--text-main);
+            border: 1px solid #e2e8f0;
+        }
+        .btn-white:hover { border-color: var(--primary-color); color: var(--primary-color); }
+
+        /* 文件列表卡片 */
+        .file-panel {
+            background: var(--surface-color);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden; /* 圆角 */
+        }
+
+        /* 表头 */
+        .file-header {
+            display: grid;
+            grid-template-columns: 50px 3fr 1fr 1.5fr 100px;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-sub);
+            font-size: 13px;
+        }
+
+        /* 文件行 */
+        .file-item {
+            display: grid;
+            grid-template-columns: 50px 3fr 1fr 1.5fr 100px;
+            padding: 16px 20px;
+            align-items: center;
+            border-bottom: 1px solid #f7f9fc;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .file-item:last-child { border-bottom: none; }
+        .file-item:hover {
+            background-color: #f8fbff;
+        }
+
+        .file-name {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+        }
+        .icon-file { font-size: 24px; }
+        .icon-folder { color: #ffca28; } /* 文件夹黄 */
+        .icon-pdf { color: #ff5252; }    /* PDF 红 */
+        .icon-img { color: #4caf50; }    /* 图片绿 */
+        .icon-zip { color: #ab47bc; }    /* 压缩包紫 */
+
+        .file-size, .file-date { color: #888; font-size: 14px; }
+
+        /* 操作按钮 (悬停显示) */
+        .file-actions {
+            opacity: 0; /* 默认隐藏 */
+            display: flex;
+            gap: 10px;
+            transition: opacity 0.2s;
+        }
+        .file-item:hover .file-actions { opacity: 1; } /* 悬停显示 */
+
+        .action-icon {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #666;
+            background: white;
+            border: 1px solid #eee;
+            transition: all 0.2s;
+        }
+        .action-icon:hover {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+    </style>
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="logo-area">
+        <i class="fa-solid fa-cloud"></i>
+        MyCloud
+    </div>
+
+    <nav class="nav-menu">
+        <a href="#" class="nav-item active">
+            <i class="fa-solid fa-folder-open"></i> 全部文件
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-image"></i> 图片
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-share-nodes"></i> 我的分享
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fa-solid fa-trash"></i> 回收站
+        </a>
+    </nav>
+
+    <div class="storage-widget">
+        <div class="storage-info">
+            <span>存储空间</span>
+            <span>640KB / 2GB</span>
+        </div>
+        <div class="progress-bg">
+            <div class="progress-bar" style="width: 35%;"></div>
+        </div>
+    </div>
+</aside>
+
+<main class="main-content">
+    <header class="top-header">
+        <div class="breadcrumb">
+            <span>首页</span>
+            <span class="separator">/</span>
+            <span>docs</span>
+            <span class="separator">/</span>
+            <span class="current">specs</span>
+        </div>
+        <div class="user-profile">
+            <span>Xuyi</span>
+            <div class="avatar"><i class="fa-solid fa-user"></i></div>
+        </div>
+    </header>
+
+    <div class="scroll-container">
+        <div class="action-bar">
+            <div class="btn-group">
+                <button class="btn btn-primary">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> 上传文件
+                </button>
+                <button class="btn btn-white">
+                    <i class="fa-solid fa-folder-plus"></i> 新建文件夹
+                </button>
+            </div>
+        </div>
+
+        <div class="file-panel">
+            <div class="file-header">
+                <div><input type="checkbox"></div>
+                <div>文件名</div>
+                <div>大小</div>
+                <div>修改日期</div>
+                <div>操作</div>
+            </div>
+
+            <div class="file-list-body">
+
+                <div class="file-item">
+                    <div><input type="checkbox"></div>
+                    <div class="file-name">
+                        <i class="fa-solid fa-folder icon-file icon-folder"></i>
+                        design_docs
+                    </div>
+                    <div class="file-size">-</div>
+                    <div class="file-date">2023-10-02</div>
+                    <div class="file-actions">
+                        <button class="action-icon" title="下载"><i class="fa-solid fa-download"></i></button>
+                        <button class="action-icon" title="更多"><i class="fa-solid fa-ellipsis"></i></button>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div><input type="checkbox"></div>
+                    <div class="file-name">
+                        <i class="fa-solid fa-file-pdf icon-file icon-pdf"></i>
+                        report_final.pdf
+                    </div>
+                    <div class="file-size">2.4 MB</div>
+                    <div class="file-date">2023-10-05</div>
+                    <div class="file-actions">
+                        <button class="action-icon" title="下载"><i class="fa-solid fa-download"></i></button>
+                        <button class="action-icon" title="分享"><i class="fa-solid fa-share-nodes"></i></button>
+                        <button class="action-icon" title="删除"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div><input type="checkbox"></div>
+                    <div class="file-name">
+                        <i class="fa-solid fa-file-zipper icon-file icon-zip"></i>
+                        logs_archive.zip
+                    </div>
+                    <div class="file-size">13.5 MB</div>
+                    <div class="file-date">2023-10-06</div>
+                    <div class="file-actions">
+                        <button class="action-icon" title="下载"><i class="fa-solid fa-download"></i></button>
+                        <button class="action-icon" title="删除"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+</body>
+</html>

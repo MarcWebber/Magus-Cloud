@@ -1,6 +1,8 @@
-/* Login.css */
+/* src/page-style.css - 隔离版 */
 
-form {
+/* 1. 把原本的 form 选择器改成 .auth-container */
+/* 意思：只有拥有这个类名的元素，才应用这些卡片样式 */
+.auth-container {
     max-width: 360px;
     margin: 100px auto;
     padding: 2rem;
@@ -10,46 +12,52 @@ form {
     font-family: "Segoe UI", sans-serif;
 }
 
-h2 {
+/* 2. 限制 h2 */
+.auth-container h2 {
     text-align: center;
     margin-bottom: 1.5rem;
     color: #333;
 }
 
-div {
+/* 3. 🔥 核心修复：只给登录框里的 div 加边距，绝不影响 Dashboard！ */
+.auth-container div {
     margin-bottom: 1.25rem;
 }
 
-label {
+.auth-container label {
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 500;
     color: #555;
 }
 
-input[type="text"],
-input[type="password"] {
+/* 4. 限制 input */
+.auth-container input[type="text"],
+.auth-container input[type="password"] {
     width: 100%;
     padding: 0.6rem 0.75rem;
     border: 1px solid #ccc;
     border-radius: 6px;
     font-size: 1rem;
     transition: border-color 0.2s;
+    box-sizing: border-box;
 }
 
-input[type="text"]:focus,
-input[type="password"]:focus {
+.auth-container input[type="text"]:focus,
+.auth-container input[type="password"]:focus {
     border-color: #007bff;
     outline: none;
 }
-.button-group {
+
+/* 按钮组 */
+.auth-container .button-group {
     display: flex;
     gap: 12px;
     margin-top: 16px;
     align-items: center;
 }
 
-.button-group button {
+.auth-container .button-group button {
     padding: 8px 16px;
     font-size: 14px;
     background-color: #4a90e2;
@@ -60,6 +68,6 @@ input[type="password"]:focus {
     transition: background-color 0.3s ease;
 }
 
-.button-group button:hover {
+.auth-container .button-group button:hover {
     background-color: #357ab8;
 }

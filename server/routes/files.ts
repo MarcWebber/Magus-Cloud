@@ -98,40 +98,60 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), (r
 });
 
 
-// 新增：文件下载接口（支持文件和文件夹）
-// router.get('/download', authenticateToken, async (req: Request, res: Response) => {
-//   // 从查询参数中获取并验证name和type
-//   const nameParam = req.query.name;
-//   const typeParam = req.query.type;
-
-//   // 验证参数是否为字符串
-//   if (typeof nameParam !== 'string' || typeof typeParam !== 'string') {
-//     return res.status(400).json({ error: '参数格式错误，需要字符串类型' });
-//   }
-
-//   if (!nameParam || !typeParam) {
-//     return res.status(400).json({ error: '缺少参数：name或type' });
-//   }
-
-//   // 确定资源存储路径
-//   const userDir = isDev
-//     ? path.join(__dirname, '../uploads') // 开发环境
-//     : `/www/wwwroot/${req.username || 'default'}`; // 生产环境
-
-//   const resourcePath = path.join(userDir, decodeURIComponent(nameParam));
-
-//   // 检查资源是否存在
-//   if (!fs.existsSync(resourcePath)) {
-//     logger.error(`资源不存在：${resourcePath}`);
-//     return res.status(404).json({ error: '资源不存在' });
-//   }
-
+//
+// // 修改原下载接口：同时支持登录用户和分享链接下载
+// router.get('/download', async (req: Request, res: Response) => {
 //   try {
+//     const nameParam = req.query.name as string;
+//     const typeParam = req.query.type as string;
+//     // 仅保留shareId参数（移除accessCode）
+//     const shareId = req.query.shareId as string;
+//
+//     // 验证基础参数
+//     if (!nameParam || !typeParam) {
+//       return res.status(400).json({ error: '缺少name或type参数' });
+//     }
+//
+//     // 区分两种模式：登录用户下载 / 分享链接下载
+//     let userDir: string;
+//     if (shareId) { // 模式1：通过分享链接下载（仅需shareId）
+//       // 验证分享有效性
+//       const shareRecord = shareStore.find(item => item.shareId === shareId);
+//       if (!shareRecord) {
+//         return res.status(404).json({ error: '分享链接不存在' });
+//       }
+//       if (shareRecord.expireAt < Date.now()) {
+//         return res.status(403).json({ error: '分享已过期' });
+//       }
+//       // 移除accessCode的校验（因为分享已无提取码）
+//
+//       // 验证分享的资源是否匹配请求的资源
+//       if (shareRecord.fileName !== nameParam || shareRecord.type !== typeParam) {
+//         return res.status(400).json({ error: '分享资源不匹配' });
+//       }
+//       // 获取分享者的目录
+//       userDir = isDev
+//         ? path.join(__dirname, '../uploads')
+//         : `/www/wwwroot/${shareRecord.username}`;
+//     } else {
+//       // 模式2：登录用户下载（原有逻辑不变）
+//       const authResult = await new Promise((resolve) => {
+//         authenticateToken(req, res, (err) => resolve(err ? false : true));
+//       });
+//       if (!authResult) return; // 认证失败会由中间件直接返回响应
+//       userDir = isDev
+//         ? path.join(__dirname, '../uploads')
+//         : `/www/wwwroot/${req.username || 'default'}`;
+//     }
+//
+//     // 后续逻辑完全复用原下载处理（文件/文件夹判断、流式传输等）
+//     const resourcePath = path.resolve(userDir, decodeURIComponent(nameParam));
+//     if (!fs.existsSync(resourcePath)) {
+//       return res.status(404).json({ error: '资源不存在' });
+//     }
+//
 //     const stats = fs.statSync(resourcePath);
-//     console.log('typeParam', typeParam)
-//     console.log('nameParam', typeParam)
-
-//     // 如果是文件下载
+//     // 文件下载
 //     if (typeParam === 'file' && stats.isFile()) {
 //       res.setHeader('Content-Type', 'application/octet-stream');
 //       res.setHeader(
@@ -139,180 +159,153 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), (r
 //         `attachment; filename="${encodeURIComponent(path.basename(nameParam))}"`
 //       );
 //       res.setHeader('Content-Length', stats.size);
-
 //       const fileStream = fs.createReadStream(resourcePath);
 //       fileStream.pipe(res);
-
 //       fileStream.on('error', (err) => {
 //         logger.error(`文件读取失败：${err.message}`);
 //         res.status(500).json({ error: '文件读取失败' });
 //       });
-
 //       return;
 //     }
-
-//     // 如果是文件夹下载
+//
+//     // 文件夹下载（压缩为ZIP）
 //     if (typeParam === 'folder' && stats.isDirectory()) {
-//       // 创建临时ZIP文件
 //       const tempZipPath = path.join(tmpdir(), `${uuidv4()}.zip`);
 //       const output = fs.createWriteStream(tempZipPath);
-//       const archive = archiver('zip', {
-//         zlib: { level: 9 } // 最高压缩级别
-//       });
-
-
+//       const archive = archiver('zip', { zlib: { level: 9 } });
+//
 //       const folderName = path.basename(resourcePath);
-
-//       // 处理压缩过程中的错误
-//       output.on('error', (err) => {
-//         logger.error(`ZIP输出错误：${err.message}`);
-//         cleanupTempFile(tempZipPath);
-//         return res.status(500).json({ error: '压缩文件创建失败' });
-//       });
-
-//       archive.on('error', (err) => {
-//         logger.error(`压缩错误：${err.message}`);
-//         cleanupTempFile(tempZipPath);
-//         return res.status(500).json({ error: '文件夹压缩失败' });
-//       });
-
-//       // 完成压缩后发送文件
 //       output.on('close', () => {
-//         try {
-//           const zipStats = fs.statSync(tempZipPath);
-
-//           res.setHeader('Content-Type', 'application/zip');
-//           res.setHeader(
-//             'Content-Disposition',
-//             `attachment; filename="${encodeURIComponent(`${folderName}.zip`)}"`
-//           );
-//           res.setHeader('Content-Length', zipStats.size);
-
-//           const zipStream = fs.createReadStream(tempZipPath);
-//           zipStream.pipe(res);
-
-//           // 发送完成后删除临时文件
-//           zipStream.on('end', () => {
-//             cleanupTempFile(tempZipPath);
-//           });
-
-//           zipStream.on('error', (err) => {
-//             logger.error(`ZIP文件读取失败：${err.message}`);
-//             cleanupTempFile(tempZipPath);
-//             res.status(500).json({ error: '压缩文件读取失败' });
-//           });
-//         } catch (err) {
-//           logger.error(`处理压缩文件失败：${err.message}`);
-//           cleanupTempFile(tempZipPath);
-//           res.status(500).json({ error: '处理压缩文件失败' });
-//         }
+//         const zipStats = fs.statSync(tempZipPath);
+//         res.setHeader('Content-Type', 'application/zip');
+//         res.setHeader(
+//           'Content-Disposition',
+//           `attachment; filename="${encodeURIComponent(`${folderName}.zip`)}"`
+//         );
+//         res.setHeader('Content-Length', zipStats.size);
+//         const zipStream = fs.createReadStream(tempZipPath);
+//         zipStream.pipe(res);
+//         zipStream.on('end', () => cleanupTempFile(tempZipPath));
 //       });
-
-//       // 开始压缩文件夹
 //       archive.pipe(output);
-//       logger.info(`开始压缩文件夹：${resourcePath} -> ${tempZipPath}`);
-//       archive.directory(resourcePath, folderName); // 压缩包内包含「nameParam（如07）」文件夹
+//       archive.directory(resourcePath, folderName);
 //       archive.finalize();
-
 //       return;
 //     }
-
-//     // 如果类型不匹配（例如请求文件但实际是文件夹）
+//
 //     return res.status(400).json({ error: '资源类型不匹配' });
-
-//   } catch (error) {
-//     logger.error(`下载处理失败：${error.message}`);
-//     return res.status(500).json({ error: '服务器处理下载失败' });
+//
+//   } catch (error: any) {
+//     logger.error(`下载失败：${error.message}`);
+//     res.status(500).json({ error: '下载处理失败' });
 //   }
 // });
-// 修改原下载接口：同时支持登录用户和分享链接下载
 router.get('/download', async (req: Request, res: Response) => {
   try {
-    const nameParam = req.query.name as string;
-    const typeParam = req.query.type as string;
-    // 仅保留shareId参数（移除accessCode）
+    // 获取参数
     const shareId = req.query.shareId as string;
+    const code = req.query.code as string; // 用户提交的提取码
 
-    // 验证基础参数
-    if (!nameParam || !typeParam) {
-      return res.status(400).json({ error: '缺少name或type参数' });
-    }
+    // 如果不是分享链接，则尝试获取 name/type (原有登录下载逻辑)
+    let nameParam = req.query.name as string;
+    let typeParam = req.query.type as string;
 
-    // 区分两种模式：登录用户下载 / 分享链接下载
     let userDir: string;
-    if (shareId) { // 模式1：通过分享链接下载（仅需shareId）
-      // 验证分享有效性
+
+    // ============================
+    // 模式 1: 通过分享链接下载
+    // ============================
+    if (shareId) {
       const shareRecord = shareStore.find(item => item.shareId === shareId);
+
+      // 1. 检查是否存在
       if (!shareRecord) {
-        return res.status(404).json({ error: '分享链接不存在' });
+        return res.status(404).json({ error: '分享链接无效' });
       }
-      if (shareRecord.expireAt < Date.now()) {
+
+      // 2. 检查是否过期 (expireAt 为 null 则不检查)
+      if (shareRecord.expireAt !== null && Date.now() > shareRecord.expireAt) {
         return res.status(403).json({ error: '分享已过期' });
       }
-      // 移除accessCode的校验（因为分享已无提取码）
-      
-      // 验证分享的资源是否匹配请求的资源
-      if (shareRecord.fileName !== nameParam || shareRecord.type !== typeParam) {
-        return res.status(400).json({ error: '分享资源不匹配' });
+
+      // 3. 检查提取码 (如果有 accessCode，则必须匹配)
+      // 注意：前端生成的下载链接里如果没有带 code，这里会拦截
+      if (shareRecord.accessCode && shareRecord.accessCode !== code) {
+        return res.status(403).json({ error: '提取码错误或缺失' });
       }
-      // 获取分享者的目录
-      userDir = isDev 
-        ? path.join(__dirname, '../uploads') 
-        : `/www/wwwroot/${shareRecord.username}`;
+
+      // 4. 增加下载统计
+      shareRecord.downloadCount = (shareRecord.downloadCount || 0) + 1;
+
+      // 使用分享记录里的文件名和类型
+      nameParam = shareRecord.fileName;
+      typeParam = shareRecord.type;
+
+      // 定位到分享者的目录
+      userDir = isDev
+          ? path.join(__dirname, '../uploads')
+          : `/www/wwwroot/${shareRecord.username}`;
+
     } else {
-      // 模式2：登录用户下载（原有逻辑不变）
+      // ============================
+      // 模式 2: 登录用户内部下载 (原有逻辑)
+      // ============================
       const authResult = await new Promise((resolve) => {
         authenticateToken(req, res, (err) => resolve(err ? false : true));
       });
-      if (!authResult) return; // 认证失败会由中间件直接返回响应
-      userDir = isDev 
-        ? path.join(__dirname, '../uploads') 
-        : `/www/wwwroot/${req.username || 'default'}`;
+      if (!authResult) return; // 中间件已处理响应
+
+      if (!nameParam || !typeParam) {
+        return res.status(400).json({ error: '缺少参数' });
+      }
+
+      userDir = isDev
+          ? path.join(__dirname, '../uploads')
+          : `/www/wwwroot/${req.username || 'default'}`;
     }
 
-    // 后续逻辑完全复用原下载处理（文件/文件夹判断、流式传输等）
+    // ============================
+    // 通用下载逻辑 (流式传输)
+    // ============================
     const resourcePath = path.resolve(userDir, decodeURIComponent(nameParam));
     if (!fs.existsSync(resourcePath)) {
       return res.status(404).json({ error: '资源不存在' });
     }
 
     const stats = fs.statSync(resourcePath);
+
     // 文件下载
     if (typeParam === 'file' && stats.isFile()) {
       res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${encodeURIComponent(path.basename(nameParam))}"`
-      );
+      // 解决中文文件名乱码问题
+      const encodedFilename = encodeURIComponent(path.basename(nameParam));
+      res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
       res.setHeader('Content-Length', stats.size);
+
       const fileStream = fs.createReadStream(resourcePath);
       fileStream.pipe(res);
-      fileStream.on('error', (err) => {
-        logger.error(`文件读取失败：${err.message}`);
-        res.status(500).json({ error: '文件读取失败' });
-      });
       return;
     }
 
-    // 文件夹下载（压缩为ZIP）
+    // 文件夹下载 (ZIP)
     if (typeParam === 'folder' && stats.isDirectory()) {
       const tempZipPath = path.join(tmpdir(), `${uuidv4()}.zip`);
       const output = fs.createWriteStream(tempZipPath);
       const archive = archiver('zip', { zlib: { level: 9 } });
-
       const folderName = path.basename(resourcePath);
+
       output.on('close', () => {
         const zipStats = fs.statSync(tempZipPath);
+        const encodedFilename = encodeURIComponent(`${folderName}.zip`);
         res.setHeader('Content-Type', 'application/zip');
-        res.setHeader(
-          'Content-Disposition',
-          `attachment; filename="${encodeURIComponent(`${folderName}.zip`)}"`
-        );
+        res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
         res.setHeader('Content-Length', zipStats.size);
+
         const zipStream = fs.createReadStream(tempZipPath);
         zipStream.pipe(res);
-        zipStream.on('end', () => cleanupTempFile(tempZipPath));
+        zipStream.on('end', () => fs.unlinkSync(tempZipPath)); // 清理临时文件
       });
+
       archive.pipe(output);
       archive.directory(resourcePath, folderName);
       archive.finalize();
@@ -323,7 +316,8 @@ router.get('/download', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     logger.error(`下载失败：${error.message}`);
-    res.status(500).json({ error: '下载处理失败' });
+    // 防止 header 已发送后再发 json 报错
+    if (!res.headersSent) res.status(500).json({ error: '下载处理失败' });
   }
 });
 // 清理临时文件的辅助函数
@@ -837,25 +831,87 @@ router.get('/preview', authenticateToken, async (req: Request, res: Response) =>
   }
 });
 
-interface ShareRecord {
-  shareId: string;        // 唯一分享ID（如 s_8f2d7c）
-  username: string;       // 分享者用户名（关联用户目录）
-  fileName: string;       // 分享的文件名/文件夹名
-  type: 'file' | 'folder';// 资源类型
-  expireAt: number;       // 过期时间（时间戳，毫秒）
-  createdAt: number;      // 创建时间（时间戳，毫秒）
-}
-let shareStore: ShareRecord[] = []; // 内存存储（生产环境替换为数据库）
+// interface ShareRecord {
+//   shareId: string;        // 唯一分享ID（如 s_8f2d7c）
+//   username: string;       // 分享者用户名（关联用户目录）
+//   fileName: string;       // 分享的文件名/文件夹名
+//   type: 'file' | 'folder';// 资源类型
+//   expireAt: number;       // 过期时间（时间戳，毫秒）
+//   createdAt: number;      // 创建时间（时间戳，毫秒）
+// }
+// let shareStore: ShareRecord[] = []; // 内存存储（生产环境替换为数据库）
+//
+// // 简化版：生成分享链接（无提取码）
+// router.post('/share/create', authenticateToken, async (req: Request, res: Response) => {
+//   try {
+//     const { fileName, type } = req.body;
+//     const username = req.username || 'default';
+//
+//     // 验证参数
+//     if (!fileName || !['file', 'folder'].includes(type)) {
+//       return res.status(400).json({ error: '参数错误：缺少fileName或type' });
+//     }
+//
+//     // 验证资源存在性
+//     const userDir = isDev ? path.join(__dirname, '../uploads') : `/www/wwwroot/${username}`;
+//     const resourcePath = path.resolve(userDir, decodeURIComponent(fileName));
+//     if (!fs.existsSync(resourcePath)) {
+//       return res.status(404).json({ error: '资源不存在' });
+//     }
+//
+//     // 生成分享信息（默认7天过期，无提取码）
+//     const shareId = `s_${uuidv4().slice(0, 6)}`; // 保留短ID用于标识分享
+//     const expireAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7天有效期
+//
+//     // 存储分享记录（移除accessCode）
+//     shareStore.push({
+//       shareId,
+//       username,
+//       fileName,
+//       type,
+//       expireAt, // 移除accessCode字段
+//       createdAt: Date.now()
+//     });
+//
+//     // 返回分享信息（移除accessCode）
+//     res.json({
+//       shareId,
+//       expireAt,
+//       message: '分享成功，有效期7天'
+//     });
+//
+//   } catch (error: any) {
+//     logger.error(`生成分享失败：${error.message}`);
+//     res.status(500).json({ error: '生成分享链接失败' });
+//   }
+// });
+// --- 数据结构定义 ---
 
-// 简化版：生成分享链接（无提取码）
+interface ShareRecord {
+  shareId: string;
+  username: string;
+  fileName: string;
+  type: 'file' | 'folder';
+  expireAt: number | null; // null 代表永久有效
+  accessCode: string;      // 提取码，空字符串代表公开
+  createdAt: number;
+  clickCount: number;      // 新增：查看次数
+  downloadCount: number;   // 新增：下载次数
+}
+
+let shareStore: ShareRecord[] = [];
+
+// 辅助函数：生成4位随机提取码
+const generateAccessCode = () => Math.random().toString(36).substring(2, 6).toLowerCase();
+
 router.post('/share/create', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { fileName, type } = req.body;
+    // 1. 接收新参数: expireDays (天数), hasCode (布尔值)
+    const { fileName, type, expireDays, hasCode } = req.body;
     const username = req.username || 'default';
 
-    // 验证参数
     if (!fileName || !['file', 'folder'].includes(type)) {
-      return res.status(400).json({ error: '参数错误：缺少fileName或type' });
+      return res.status(400).json({ error: '参数错误' });
     }
 
     // 验证资源存在性
@@ -865,25 +921,40 @@ router.post('/share/create', authenticateToken, async (req: Request, res: Respon
       return res.status(404).json({ error: '资源不存在' });
     }
 
-    // 生成分享信息（默认7天过期，无提取码）
-    const shareId = `s_${uuidv4().slice(0, 6)}`; // 保留短ID用于标识分享
-    const expireAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7天有效期
+    // 2. 生成短ID
+    const shareId = `s_${uuidv4().slice(0, 6)}`;
 
-    // 存储分享记录（移除accessCode）
+    // 3. 计算过期时间
+    // 前端传 0 代表永久，expireAt 设为 null
+    // 前端传 > 0，计算时间戳
+    let expireAt: number | null = null;
+    const days = parseInt(expireDays);
+    if (!isNaN(days) && days > 0) {
+      expireAt = Date.now() + days * 24 * 60 * 60 * 1000;
+    }
+
+    // 4. 生成提取码
+    const accessCode = hasCode ? generateAccessCode() : '';
+
+    // 5. 存入 Store
     shareStore.push({
       shareId,
       username,
       fileName,
       type,
-      expireAt, // 移除accessCode字段
-      createdAt: Date.now()
+      expireAt,
+      accessCode,
+      createdAt: Date.now(),
+      clickCount: 0,
+      downloadCount: 0
     });
 
-    // 返回分享信息（移除accessCode）
+    // 6. 返回给前端 (包含提取码)
     res.json({
       shareId,
+      code: accessCode,
       expireAt,
-      message: '分享成功，有效期7天'
+      message: '分享创建成功'
     });
 
   } catch (error: any) {
@@ -892,4 +963,27 @@ router.post('/share/create', authenticateToken, async (req: Request, res: Respon
   }
 });
 
+// 获取当前用户的分享列表
+router.get('/share/list', authenticateToken, (req: Request, res: Response) => {
+  const username = req.username;
+  // 过滤出当前用户的分享
+  const myShares = shareStore.filter(s => s.username === username);
+  // 按创建时间倒序
+  myShares.sort((a, b) => b.createdAt - a.createdAt);
+  res.json(myShares);
+});
+
+// 取消分享
+router.delete('/share/:shareId', authenticateToken, (req: Request, res: Response) => {
+  const { shareId } = req.params;
+  const username = req.username;
+
+  const index = shareStore.findIndex(s => s.shareId === shareId && s.username === username);
+  if (index !== -1) {
+    shareStore.splice(index, 1); // 从数组移除
+    res.json({ success: true, message: '分享已取消' });
+  } else {
+    res.status(404).json({ error: '分享不存在或无权操作' });
+  }
+});
 export default router;
