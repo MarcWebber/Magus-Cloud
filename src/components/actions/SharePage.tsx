@@ -1,18 +1,25 @@
 // src/pages/SharePage.tsx
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-// 复用登录页的样式 (卡片风格)
+import { useParams, useSearchParams } from 'react-router-dom'; // 引入 useSearchParams
 import '../../page-style.css';
 
 export default function SharePage() {
     const { shareId } = useParams();
+    const [searchParams] = useSearchParams(); // 获取 URL 查询参数
+
     const [info, setInfo] = useState<any>(null);
     const [code, setCode] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // 1. 获取分享详情
+        // 1. 优先从 URL 参数里获取 code (实现自动填码)
+        const urlCode = searchParams.get('code');
+        if (urlCode) {
+            setCode(urlCode);
+        }
+
+        // 2. 获取文件信息
         fetch(`/api/share/info/${shareId}`)
             .then(async res => {
                 const data = await res.json();
@@ -22,23 +29,18 @@ export default function SharePage() {
                     setError(data.error);
                 }
             })
-            .catch(() => setError('网络连接错误'))
+            .catch(() => setError('网络错误'))
             .finally(() => setLoading(false));
-    }, [shareId]);
+    }, [shareId, searchParams]);
 
     const handleDownload = () => {
-        // 如果需要码且未输入，提示
         if (info.hasCode && !code) {
-            alert('请输入提取码'); // 这里也可以用 message.warning
+            alert('请输入提取码');
             return;
         }
 
-        // 🔥 核心逻辑：拼接到底层下载 API
-        // 用户在浏览器里访问这个链接，实际上就是触发下载
         const baseUrl = window.location.origin;
         let downloadUrl = `${baseUrl}/api/download?shareId=${shareId}`;
-
-        // 如果有码，拼上去
         if (code) {
             downloadUrl += `&code=${code}`;
         }
@@ -47,13 +49,13 @@ export default function SharePage() {
         window.location.href = downloadUrl;
     };
 
-    if (loading) return <div style={{textAlign:'center', marginTop: 100, color: '#666'}}>加载分享信息...</div>;
+    if (loading) return <div style={{textAlign:'center', marginTop: 100, color:'#666'}}>加载中...</div>;
 
     if (error) {
         return (
             <div style={{textAlign:'center', marginTop: 100}}>
-                <div style={{fontSize: '48px', marginBottom: '20px'}}>😕</div>
-                <h3 style={{color: '#555'}}>{error}</h3>
+                <h2 style={{color: '#ff4d4f'}}>😕</h2>
+                <p>{error}</p>
             </div>
         );
     }
@@ -63,10 +65,8 @@ export default function SharePage() {
             display: 'flex', justifyContent: 'center', alignItems: 'center',
             height: '100vh', background: '#f0f2f5'
         }}>
-            {/* 复用 auth-container 样式实现卡片效果 */}
             <div className="auth-container" style={{ width: '420px', textAlign: 'center', padding: '40px' }}>
 
-                {/* 图标区 */}
                 <div style={{ marginBottom: '24px' }}>
                     {info.type === 'folder' ? (
                         <i className="fa-solid fa-folder-open" style={{ fontSize: '56px', color: '#FFC107' }}></i>
@@ -75,7 +75,6 @@ export default function SharePage() {
                     )}
                 </div>
 
-                {/* 信息区 */}
                 <h2 style={{fontSize: '18px', color: '#333', marginBottom: '8px', wordBreak: 'break-all'}}>
                     {info.fileName}
                 </h2>
@@ -84,28 +83,29 @@ export default function SharePage() {
                     {info.expireAt ? `有效期至: ${new Date(info.expireAt).toLocaleDateString()}` : '永久有效'}
                 </p>
 
-                {/* 提取码输入区 (如果需要) */}
+                {/* 提取码输入区 */}
                 {info.hasCode && (
                     <div style={{ marginBottom: '24px', textAlign: 'left' }}>
                         <label style={{ display: 'block', marginBottom: '8px', color: '#666', fontSize: '14px' }}>
-                            请输入提取码：
+                            提取码：
                         </label>
                         <input
                             type="text"
                             value={code}
                             onChange={(e) => setCode(e.target.value)}
-                            placeholder="4位提取码"
+                            placeholder="请输入提取码"
                             style={{
                                 width: '100%', padding: '12px', borderRadius: '8px',
                                 border: '1px solid #ddd', fontSize: '16px',
                                 letterSpacing: '2px', textAlign: 'center',
-                                boxSizing: 'border-box', outline: 'none'
+                                boxSizing: 'border-box', outline: 'none',
+                                // 如果自动填了码，背景稍微变一下提示用户
+                                backgroundColor: searchParams.get('code') ? '#f6ffed' : 'white'
                             }}
                         />
                     </div>
                 )}
 
-                {/* 按钮区 */}
                 <button
                     onClick={handleDownload}
                     style={{
