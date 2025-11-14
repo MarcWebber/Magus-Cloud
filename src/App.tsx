@@ -3,7 +3,7 @@ import Register from './pages/Register';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login'; // 新增
-
+import SharePage from './components/actions/SharePage';
 export default function App() {
     return (
         <BrowserRouter>
@@ -18,6 +18,9 @@ export default function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+
+                <Route path="/s/:shareId" element={<SharePage />} />
+
                 <Route path="*" element={<div>404 页面未找到</div>} />
             </Routes>
         </BrowserRouter>

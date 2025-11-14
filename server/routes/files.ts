@@ -986,4 +986,33 @@ router.delete('/share/:shareId', authenticateToken, (req: Request, res: Response
     res.status(404).json({ error: '分享不存在或无权操作' });
   }
 });
+
+router.get('/share/info/:shareId', async (req: Request, res: Response) => {
+  try {
+    const { shareId } = req.params;
+    const shareRecord = shareStore.find(s => s.shareId === shareId);
+
+    if (!shareRecord) {
+      return res.status(404).json({ error: '分享链接不存在或已取消' });
+    }
+
+    // 检查过期
+    if (shareRecord.expireAt !== null && Date.now() > shareRecord.expireAt) {
+      return res.status(410).json({ error: '该分享已过期' });
+    }
+
+    // 返回安全信息 (❌ 绝对不能返回 accessCode)
+    res.json({
+      fileName: shareRecord.fileName,
+      username: shareRecord.username, // 分享者
+      expireAt: shareRecord.expireAt,
+      type: shareRecord.type,
+      // 告诉前端：这个文件是否设置了提取码
+      hasCode: !!shareRecord.accessCode
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: '获取信息失败' });
+  }
+});
 export default router;

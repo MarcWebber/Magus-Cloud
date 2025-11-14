@@ -170,24 +170,20 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
         setError('');
 
         try {
-            // 请求后端创建分享
-            // 注意：后端需要修改以支持 expireDays 和 hasCode 参数 (我们将在第四步修改后端)
             const response = await axios.post('/api/share/create', {
                 fileName,
                 type,
                 expireDays: parseInt(expireDays),
-                hasCode: true // 默认开启提取码
+                hasCode: true
             });
 
             const { shareId, code } = response.data;
-
-            // 构造下载/访问链接
-            // 这里我们生成一个直接指向后端下载接口的链接
-            // 实际生产中，通常是一个前端页面地址 (如 /s/shareId)
             const baseUrl = window.location.origin;
-            const url = code
-                ? `${baseUrl}/api/download?shareId=${shareId}&code=${code}`
-                : `${baseUrl}/api/download?shareId=${shareId}`;
+
+            // 🔥 核心修改：这里的 URL 改为指向前端路由 /s/:shareId
+            // 这样用户打开看到的是卡片页，而不是直接请求 API
+            const url = `${baseUrl}/s/${shareId}`;
+
             setShareData({
                 url,
                 code: code || ''
@@ -245,10 +241,16 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
     // 复制完整信息
     const handleCopyAll = () => {
         if (!shareData) return;
+
+        // 🔥 核心修改：拼接成“百度网盘风格”的文本
+        // 格式：链接: http://... 提取码: xxxx
         const text = `链接: ${shareData.url} 提取码: ${shareData.code}`;
+
+        // 如果你想要更丰富的格式（带文件名），可以用下面这种：
+        // const text = `我给你分享了「${fileName}」\n链接: ${shareData.url}\n提取码: ${shareData.code}`;
+
         handleCopy(text);
     };
-
     if (!visible) return null;
 
     return (
