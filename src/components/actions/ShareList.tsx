@@ -19,20 +19,13 @@ interface ShareListProps {
     onCancelShare: (shareId: string) => void;
 }
 
-// 🔥 新增：一个独立的复制按钮组件，用来管理自己的图标状态
 const CopyButton = ({ onCopy }: { onCopy: () => void }) => {
     const [isCopied, setIsCopied] = useState(false);
-
     const handleClick = () => {
-        onCopy(); // 执行复制逻辑
-        setIsCopied(true); // 变成勾
-
-        // 2秒后变回复制图标
-        setTimeout(() => {
-            setIsCopied(false);
-        }, 2000);
+        onCopy();
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
     };
-
     return (
         <button
             className={Styles.actionBtn}
@@ -40,13 +33,7 @@ const CopyButton = ({ onCopy }: { onCopy: () => void }) => {
             onClick={handleClick}
             style={isCopied ? { borderColor: '#52c41a', backgroundColor: '#f6ffed' } : {}}
         >
-            {isCopied ? (
-                // 变成绿色的勾
-                <i className="fa-solid fa-check" style={{ color: '#52c41a' }}></i>
-            ) : (
-                // 原始图标
-                <i className="fa-regular fa-copy"></i>
-            )}
+            {isCopied ? <i className="fa-solid fa-check" style={{ color: '#52c41a' }}></i> : <i className="fa-regular fa-copy"></i>}
         </button>
     );
 };
@@ -56,29 +43,28 @@ export default function ShareList({ items, onCancelShare }: ShareListProps) {
     const formatDate = (timestamp: number | null) => {
         if (!timestamp) return '永久有效';
         const date = new Date(timestamp);
-        if (date.getTime() < Date.now()) {
-            return <span style={{color: '#ff4d4f'}}>已过期</span>;
-        }
+        if (date.getTime() < Date.now()) return <span style={{color: '#ff4d4f'}}>已过期</span>;
         return date.toLocaleString();
     };
 
-    // 复制链接核心逻辑
     const handleCopyLink = (item: ShareItem) => {
         const baseUrl = window.location.origin;
 
+        // 1. 构造基础干净链接
         let url = `${baseUrl}/s/${item.shareId}`;
+
+        // 2. 🔥 核心修改：直接拼参数，不加额外中文描述
+        // 结果：http://domain/s/xyz?code=123
         if (item.code) {
             url += `?code=${item.code}`;
         }
 
-        const text = `链接: ${url} 提取码: ${item.code || '无'}`;
-
         if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(text)
-                .then(() => message.success('复制成功'))
-                .catch(() => doFallbackCopy(text));
+            navigator.clipboard.writeText(url)
+                .then(() => message.success('链接已复制'))
+                .catch(() => doFallbackCopy(url));
         } else {
-            doFallbackCopy(text);
+            doFallbackCopy(url);
         }
     };
 
@@ -93,11 +79,8 @@ export default function ShareList({ items, onCancelShare }: ShareListProps) {
             textArea.select();
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
-            if (successful) {
-                message.success('复制成功');
-            } else {
-                message.error('复制失败');
-            }
+            if (successful) message.success('链接已复制');
+            else message.error('复制失败');
         } catch (err) {
             message.error('复制失败');
         }
@@ -136,27 +119,18 @@ export default function ShareList({ items, onCancelShare }: ShareListProps) {
                            style={{ color: item.type === 'folder' ? '#FFC107' : '#3b8cff' }}>
                         </i>
                         <div style={{display: 'flex', flexDirection: 'column', overflow: 'hidden'}}>
-                            <span className={Styles.fileNameText} title={item.fileName}>
-                                {item.fileName}
-                            </span>
+                            <span className={Styles.fileNameText} title={item.fileName}>{item.fileName}</span>
                             <span style={{fontSize: '12px', color: '#999', marginTop: '2px'}}>
                                 下载: {item.downloadCount || 0} 次
                             </span>
                         </div>
                     </div>
-
                     <div className={Styles.colSize} style={{fontFamily: 'monospace', color: '#333'}}>
                         {item.code || <span style={{color:'#ccc'}}>公开</span>}
                     </div>
-
-                    <div className={Styles.colDate}>
-                        {formatDate(item.expireAt)}
-                    </div>
-
+                    <div className={Styles.colDate}>{formatDate(item.expireAt)}</div>
                     <div className={Styles.colActions} style={{ opacity: 1 }}>
-                        {/* 🔥 这里使用了新的 CopyButton 组件 */}
                         <CopyButton onCopy={() => handleCopyLink(item)} />
-
                         <button
                             className={Styles.actionBtn}
                             title="取消分享"

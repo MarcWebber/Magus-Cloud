@@ -129,6 +129,7 @@
 //
 // src/components/actions/Share.tsx
 // src/components/actions/Share.tsx
+// src/components/actions/Share.tsx
 import React, { useEffect, useState } from 'react';
 import Styles from './Share.module.css';
 import axios from 'axios';
@@ -141,17 +142,15 @@ type ShareModalProps = {
     onClose: () => void;
 };
 
-// 🔥 内部小组件：自带状态的复制按钮
+// 内部复制按钮组件 (保持不变)
 const CopyBtn = ({ text, className, label }: { text: string, className: string, label: string }) => {
     const [isCopied, setIsCopied] = useState(false);
 
     const handleCopy = async () => {
         try {
-            // 1. 优先使用现代 API
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(text);
             } else {
-                // 2. 兼容 HTTP
                 const textArea = document.createElement("textarea");
                 textArea.value = text;
                 textArea.style.position = "fixed";
@@ -162,12 +161,9 @@ const CopyBtn = ({ text, className, label }: { text: string, className: string, 
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
             }
-
-            // 成功反馈
             message.success('复制成功');
             setIsCopied(true);
-            setTimeout(() => setIsCopied(false), 2000); // 2秒后变回原样
-
+            setTimeout(() => setIsCopied(false), 2000);
         } catch (err) {
             message.error('复制失败，请手动复制');
         }
@@ -177,19 +173,9 @@ const CopyBtn = ({ text, className, label }: { text: string, className: string, 
         <button
             className={className}
             onClick={handleCopy}
-            style={isCopied ? {
-                backgroundColor: '#f6ffed',
-                borderColor: '#b7eb8f',
-                color: '#52c41a',
-                transition: 'all 0.2s'
-            } : {}}
+            style={isCopied ? { backgroundColor: '#f6ffed', borderColor: '#b7eb8f', color: '#52c41a', transition: 'all 0.2s' } : {}}
         >
-            {isCopied ? (
-                <>
-                    <i className="fa-solid fa-check" style={{marginRight: '4px'}}></i>
-                    已复制
-                </>
-            ) : label}
+            {isCopied ? <><i className="fa-solid fa-check" style={{marginRight: '4px'}}></i> 已复制</> : label}
         </button>
     );
 };
@@ -223,9 +209,9 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
             const { shareId, code } = response.data;
             const baseUrl = window.location.origin;
 
-            // 生成落地页链接
-            let url = `${baseUrl}/s/${shareId}`;
-            if (code) url += `?code=${code}`;
+            // 🔥 修改点 1：这里只存“干净”的链接，用于在界面上展示
+            // 界面显示：http://.../s/s_0b1b91
+            const url = `${baseUrl}/s/${shareId}`;
 
             setShareData({ url, code: code || '' });
             message.success('链接创建成功');
@@ -234,6 +220,16 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
         } finally {
             setLoading(false);
         }
+    };
+
+    // 🔥 修改点 2：计算智能链接 (带参数)
+    // 复制内容：http://.../s/s_0b1b91?code=i21l
+    const getSmartUrl = () => {
+        if (!shareData) return '';
+        if (shareData.code) {
+            return `${shareData.url}?code=${shareData.code}`;
+        }
+        return shareData.url;
     };
 
     if (!visible) return null;
@@ -266,11 +262,7 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
                         {error && <div className={Styles['error']}>{error}</div>}
                         <div className={Styles['actions']}>
                             <button className={`${Styles['btn']} ${Styles['btnCancel']}`} onClick={onClose}>取消</button>
-                            <button
-                                className={`${Styles['btn']} ${Styles['btnPrimary']}`}
-                                onClick={handleCreate}
-                                disabled={loading}
-                            >
+                            <button className={`${Styles['btn']} ${Styles['btnPrimary']}`} onClick={handleCreate} disabled={loading}>
                                 {loading ? '创建中...' : '创建链接'}
                             </button>
                         </div>
@@ -283,8 +275,8 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
                             <div className={Styles['resultRow']}>
                                 <label className={Styles['label']}>下载链接</label>
                                 <div className={Styles['inputRow']}>
+                                    {/* 界面展示的是 shareData.url (干净链接) */}
                                     <input className={Styles['input']} value={shareData.url} readOnly />
-                                    {/* 使用新的 CopyBtn 组件 */}
                                     <CopyBtn text={shareData.url} className={Styles['copyBtn']} label="复制" />
                                 </div>
                             </div>
@@ -293,7 +285,6 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
                                 <label className={Styles['label']}>提取码</label>
                                 <div className={Styles['inputRow']}>
                                     <input className={`${Styles['input']} ${Styles['codeBox']}`} value={shareData.code} readOnly />
-                                    {/* 使用新的 CopyBtn 组件 */}
                                     <CopyBtn text={shareData.code} className={Styles['copyBtn']} label="复制" />
                                 </div>
                             </div>
@@ -302,9 +293,9 @@ export default function Share({ fileName, type, visible, onClose }: ShareModalPr
                         <div className={Styles['actions']}>
                             <button className={`${Styles['btn']} ${Styles['btnCancel']}`} onClick={onClose}>关闭</button>
 
-                            {/* 这里的文本组合了链接和码，方便分享 */}
+                            {/* 🔥 核心修改：底部按钮复制的是 getSmartUrl() (智能链接) */}
                             <CopyBtn
-                                text={`链接: ${shareData.url} 提取码: ${shareData.code}`}
+                                text={getSmartUrl()}
                                 className={`${Styles['btn']} ${Styles['btnPrimary']}`}
                                 label="复制链接及提取码"
                             />
