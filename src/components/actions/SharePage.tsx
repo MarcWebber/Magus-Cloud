@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 // 复用登录页的样式 (卡片风格)
-import '../page-style.css';
+import '../../page-style.css';
 
 export default function SharePage() {
     const { shareId } = useParams();
