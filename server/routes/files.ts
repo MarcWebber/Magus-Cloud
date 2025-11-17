@@ -163,7 +163,7 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
     for (const file of req.files as Express.Multer.File[]) {
       // file.webkitRelativePath 包含子目录结构 (例如 MyFolder/sub/file.txt)
       // 我们需要去掉最顶层的 MyFolder/
-      const relativePath = file.webkitRelativePath.substring(file.webkitRelativePath.indexOf('/') + 1);
+      const relativePath = file.originalname;
 
       const tempPath = file.path;
       const targetPath = path.resolve(userDir, relativePath); // 直接用 userDir + 相对路径
