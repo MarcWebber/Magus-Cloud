@@ -609,7 +609,7 @@ export default function Dashboard() {
     const [data, setData] = useState<FileTreeNode[]>([]);
     const [currentPath, setCurrentPath] = useState<string[]>([]);
     const [shareItems, setShareItems] = useState<ShareItem[]>([]);
-    const [sortConfig, setSortConfig] = useState<SortConfig>({key: 'name', direction: 'asc'});
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [userUsageList, setUserUsageList] = useState<{ name: string, size: string }[]>([]);
@@ -627,7 +627,7 @@ export default function Dashboard() {
 
     // 2. 数据获取 (API)
     const fetchFiles = () => {
-        fetch('/api/files', {credentials: 'include'})
+        fetch('/api/files', { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
                 setFiles(data.files || []);
@@ -636,7 +636,7 @@ export default function Dashboard() {
             .catch(err => console.error("Fetch files error:", err));
     };
     const fetchShareList = () => {
-        fetch('/api/share/list', {method: 'GET', credentials: 'include'})
+        fetch('/api/share/list', { method: 'GET', credentials: 'include' })
             .then(res => res.json())
             .then(data => {
                 const list = Array.isArray(data) ? data : (data.data || []);
@@ -646,22 +646,18 @@ export default function Dashboard() {
     };
     const handleCancelShare = async (shareId: string) => {
         try {
-            const res = await fetch(`/api/share/${shareId}`, {method: 'DELETE', credentials: 'include'});
+            const res = await fetch(`/api/share/${shareId}`, { method: 'DELETE', credentials: 'include' });
             if (res.ok) {
                 message.success('已取消分享');
                 fetchShareList();
-            } else {
-                message.error('取消失败');
-            }
-        } catch (error) {
-            message.error('请求出错');
-        }
+            } else { message.error('取消失败'); }
+        } catch (error) { message.error('请求出错'); }
     };
 
     // 3. 生命周期 Effect
     useEffect(() => {
         fetchFiles();
-        fetch('/api/usage', {credentials: 'include'})
+        fetch('/api/usage', { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
                 setUserUsageList(data.usage || []);
@@ -682,24 +678,20 @@ export default function Dashboard() {
     }, [activeTab]);
 
     useEffect(() => {
-        if (files.length === 0) {
-            setData([]);
-            return;
-        }
-        ;
+        if (files.length === 0) { setData([]); return; };
         const treeData = addIdsAndCalculateSize(files);
         setData(treeData);
     }, [files]);
 
     // 4. 计算属性 (useMemo)
-    const {top5Users} = useMemo(() => {
-        if (!userUsageList || userUsageList.length === 0) return {top5Users: []};
+    const { top5Users } = useMemo(() => {
+        if (!userUsageList || userUsageList.length === 0) return { top5Users: [] };
         const sortedUsers: TopUser[] = [...userUsageList]
-            .map(user => ({name: user.name, sizeBytes: parseSize(user.size)}))
+            .map(user => ({ name: user.name, sizeBytes: parseSize(user.size) }))
             .sort((a, b) => b.sizeBytes - a.sizeBytes)
             .slice(0, 5)
-            .map(user => ({name: user.name, sizeFormatted: formatBytes(user.sizeBytes)}));
-        return {top5Users: sortedUsers};
+            .map(user => ({ name: user.name, sizeFormatted: formatBytes(user.sizeBytes) }));
+        return { top5Users: sortedUsers };
     }, [userUsageList]);
 
     const processedItems = useMemo(() => {
@@ -710,18 +702,16 @@ export default function Dashboard() {
         items.sort((a, b) => {
             if (a.type === 'folder' && b.type !== 'folder') return -1;
             if (a.type !== 'folder' && b.type === 'folder') return 1;
-            const {key, direction} = sortConfig;
+            const { key, direction } = sortConfig;
             const dir = direction === 'asc' ? 1 : -1;
             switch (key) {
-                case 'size':
-                    return (parseSize(a.size || '0') - parseSize(b.size || '0')) * dir;
+                case 'size': return (parseSize(a.size || '0') - parseSize(b.size || '0')) * dir;
                 case 'mtime':
                     const dateA = a.mtime ? new Date(a.mtime).getTime() : 0;
                     const dateB = b.mtime ? new Date(b.mtime).getTime() : 0;
                     return (dateA - dateB) * dir;
                 case 'name':
-                default:
-                    return a.name.localeCompare(b.name) * dir;
+                default: return a.name.localeCompare(b.name) * dir;
             }
         });
         return items;
@@ -749,7 +739,7 @@ export default function Dashboard() {
         if (sortConfig.key === key && sortConfig.direction === 'asc') {
             direction = 'desc';
         }
-        setSortConfig({key, direction});
+        setSortConfig({ key, direction });
         setCurrentPage(1);
     };
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -851,7 +841,6 @@ export default function Dashboard() {
     // ==========================================
     // 5. 视图渲染
     // ==========================================
-
     const renderMainContent = () => {
         // --- 场景 A: 我的分享 ---
         if (activeTab === 'share') {
@@ -915,16 +904,14 @@ export default function Dashboard() {
                             justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
                         }}>
                             {/* 左侧按钮组 */}
-                            <div className="upload-section" style={{margin: 0, display: 'flex', gap: '12px'}}>
-                                <input type="file" id="file-input" style={{display: 'none'}}
-                                       onChange={handleFileChange}/>
+                            <div className="upload-section" style={{ margin: 0, display: 'flex', gap: '12px' }}>
+                                <input type="file" id="file-input" style={{display: 'none'}} onChange={handleFileChange} />
                                 {/* ✅ 应用新样式 */}
                                 <label htmlFor="file-input" className="actionButton btnPrimary">
                                     <i className="fa-solid fa-cloud-arrow-up"></i> 上传文件
                                 </label>
 
-                                <input ref={folderInputRef} type="file" id="folder-input" style={{display: 'none'}}
-                                       onChange={handleFolderChange}/>
+                                <input ref={folderInputRef} type="file" id="folder-input" style={{display: 'none'}} onChange={handleFolderChange} />
                                 {/* ✅ 应用新样式 */}
                                 <label htmlFor="folder-input" className="actionButton btnSecondary">
                                     <i className="fa-solid fa-folder-plus"></i> 文件夹
@@ -933,13 +920,8 @@ export default function Dashboard() {
 
                             {/* 右侧：显示“开始上传”按钮 */}
                             {(selectedFile || selectedFolderName) && (
-                                <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                                    <span className="selected-file" style={{
-                                        maxWidth: '200px',
-                                        overflow: 'hidden',
-                                        whiteSpace: 'nowrap',
-                                        textOverflow: 'ellipsis'
-                                    }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span className="selected-file" style={{ maxWidth: '200px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                                         待上传: <strong>{selectedFile ? selectedFile.name : selectedFolderName}</strong>
                                     </span>
                                     {/* ✅ 应用新样式 */}
@@ -956,23 +938,16 @@ export default function Dashboard() {
 
                     {/* --- 进度条行 (仅在上传时显示) --- */}
                     {uploading && (
-                        <div style={{marginTop: '0px'}}>
-                            <div style={{display: 'flex', alignItems: 'center', gap: '12px', width: '100%'}}>
-                                <span className="selected-file" style={{
-                                    flexShrink: 0,
-                                    maxWidth: '200px',
-                                    overflow: 'hidden',
-                                    whiteSpace: 'nowrap',
-                                    textOverflow: 'ellipsis'
-                                }}>
-                                    <i className="fa-solid fa-spinner fa-spin"
-                                       style={{marginRight: '8px', color: 'var(--primary-color)'}}></i>
+                        <div style={{ marginTop: '0px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                                <span className="selected-file" style={{ flexShrink: 0, maxWidth: '200px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                    <i className="fa-solid fa-spinner fa-spin" style={{marginRight: '8px', color: 'var(--primary-color)'}}></i>
                                     上传中: <strong>{selectedFile ? selectedFile.name : selectedFolderName}</strong>
                                 </span>
-                                <div className="upload-progress-bar" style={{flex: 1, width: 'auto'}}>
+                                <div className="upload-progress-bar" style={{ flex: 1, width: 'auto' }}>
                                     <div className="upload-progress-fill" style={{width: `${uploadProgress}%`}}></div>
                                 </div>
-                                <span style={{flexShrink: 0, fontWeight: 'bold'}}>{uploadProgress}%</span>
+                                <span style={{ flexShrink: 0, fontWeight: 'bold' }}>{uploadProgress}%</span>
                                 {/* ✅ 应用新样式 */}
                                 <button
                                     className="actionButton btnSecondary"
@@ -984,8 +959,7 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {uploadError &&
-                        <div className="upload-error" style={{width: '100%', marginTop: '10px'}}>{uploadError}</div>}
+                    {uploadError && <div className="upload-error" style={{width: '100%', marginTop: '10px'}}>{uploadError}</div>}
                 </div>
 
                 {/* 文件列表 */}
@@ -993,8 +967,7 @@ export default function Dashboard() {
                     background: 'white', borderRadius: '12px', padding: '24px',
                     boxShadow: 'var(--shadow-sm)', minHeight: '400px'
                 }}>
-                    <input type="text" placeholder="在当前文件夹中搜索..." value={searchTerm}
-                           onChange={handleSearchChange}
+                    <input type="text" placeholder="在当前文件夹中搜索..." value={searchTerm} onChange={handleSearchChange}
                            style={{
                                width: 'calc(100% - 24px)', padding: '10px 12px', border: '1px solid #ddd',
                                borderRadius: '6px', marginBottom: '16px', fontSize: '14px', outline: 'none'
@@ -1044,4 +1017,26 @@ export default function Dashboard() {
             </>
         );
     };
+
+    return (
+        <div className="dashboard-container">
+            <Sidebar
+                usedSize={usage}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                totalUsed={totalUsed}
+                totalFree={totalFree}
+                top5Users={top5Users}
+            />
+            <main className="main-container">
+                <Header
+                    currentPath={activeTab === 'share' ? ['我的分享'] : currentPath}
+                    onNavigate={handleNavigate}
+                />
+                <div className="content-scroll-area" style={{ padding: '24px' }}>
+                    {renderMainContent()}
+                </div>
+            </main>
+        </div>
+    );
 }
