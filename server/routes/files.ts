@@ -482,41 +482,52 @@ function formatBytes(bytes, decimals = 2) {
 // });
 
 router.get('/usage', authenticateToken, async (req, res) => {
+  // dev 模式也返回新格式
+  if (isDev) {
+    const devData = DevEnvGetUserUsage(); // 假设返回 { usage: [...] }
+    const totalUsedBytes = devData.usage.reduce((sum: number, u: any) => sum + parseSize(u.size), 0);
 
+    return res.json({
+      usage: devData.usage,
+      totalUsed: formatBytes(totalUsedBytes), // 格式化
+      totalFree: "45.8 GB" // 模拟剩余空间
+    });
+  }
 
   // 生产环境
   const rootDir = `/www/wwwroot`;
 
   try {
-    // 1. 读取 rootDir 下的所有目录作为用户 (保持不变)
+    // 1. 计算所有用户的已用空间 (保持不变)
     const users = fs.readdirSync(rootDir).filter(name => {
       const fullPath = path.join(rootDir, name);
       return fs.statSync(fullPath).isDirectory() && !name.startsWith('.');
     });
 
-    // 2. 计算每个用户的用量 (保持不变)
     const usage = await Promise.all(users.map(async user => {
       const userDir = path.join(rootDir, user);
       const sizeInBytes = await getDirectorySize(userDir);
       const sizeFormatted = formatBytes(sizeInBytes);
-      const name = user;
-      return { name, size: sizeFormatted };
+      return { name: user, size: sizeFormatted };
     }));
 
-    // 获取磁盘总容量
-    // 我们检查 rootDir 所在的磁盘分区
+    // 2. 计算已用空间总和
+    const totalUsedBytes = usage.reduce((sum, user) => sum + parseSize(user.size), 0);
+
+    // 🔥 3. 获取磁盘剩余空间
     const diskInfo = await checkDiskSpace(rootDir);
-    const totalCapacity = diskInfo.size; // 单位: 字节 (number)
+    const totalFreeBytes = diskInfo.free; // 单位: 字节 (number)
 
     logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
 
-    // 🔥 4. 修改：在响应中加入 totalCapacity
+    // 🔥 4. 返回新格式的 JSON
     res.json({
       usage: usage,
-      totalCapacity: totalCapacity // (e.g., 107374182400)
+      totalUsed: formatBytes(totalUsedBytes), // 格式化已用
+      totalFree: formatBytes(totalFreeBytes)  // 格式化剩余
     });
 
-  } catch (err) {
+  } catch (err) : any {
     logger.error(`获取用户用量失败：${err.message}`);
     res.status(500).json({ error: '无法获取用户用量信息' });
   }

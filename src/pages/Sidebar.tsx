@@ -13,7 +13,8 @@ interface SidebarProps {
     usedSize: string;
     activeTab: 'all' | 'share';
     onTabChange: (tab: 'all' | 'share') => void;
-    totalDiskUsage?: string; // 新增：磁盘总用量 (设为可选)
+    totalUsed?: string; // 总已用
+    totalFree?: string; // 总剩余
     top5Users?: TopUser[];      // 新增：Top 5 用户 (设为可选)
 }
 
@@ -41,7 +42,8 @@ export default function Sidebar({
                                     usedSize,
                                     activeTab,
                                     onTabChange,
-                                    totalDiskUsage = '0 B', // 接收新 prop，并给默认值
+                                    totalUsed = '0 B',
+                                    totalFree = '0 B',
                                     top5Users = []       // 接收新 prop，并给默认值
                                 }: SidebarProps) {
 
@@ -167,11 +169,10 @@ export default function Sidebar({
                     content={<UsageDetailContent users={top5Users} />}
                     title={null}
                     trigger="click"
-                    placement="rightTop" // 弹出位置
+                    placement="rightTop"
                 >
                     <div
                         style={styles.totalUsageRow}
-                        // 鼠标悬停效果
                         onMouseEnter={(e) => {
                             (e.currentTarget as HTMLDivElement).style.color = 'var(--primary-color)';
                             (e.currentTarget as HTMLDivElement).style.backgroundColor = '#f0f7ff';
@@ -181,8 +182,10 @@ export default function Sidebar({
                             (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent';
                         }}
                     >
-                        <span>磁盘空间已用</span>
-                        <span>{totalDiskUsage}</span>
+                        <span>磁盘空间</span>
+                        <span style={{fontWeight: 400, color: '#333'}}>
+                            {totalUsed} / <span style={{color: '#52c41a'}}>{totalFree}</span>
+                        </span>
                     </div>
                 </Popover>
             </div>

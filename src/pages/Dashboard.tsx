@@ -682,7 +682,8 @@ export default function Dashboard() {
 
     // 🔥 2. 总用量 - 新增状态
     const [userUsageList, setUserUsageList] = useState<{ name: string, size: string }[]>([]);
-
+    const [totalUsed, setTotalUsed] = useState('0 B'); // 所有用户已用
+    const [totalFree, setTotalFree] = useState('0 B'); // 磁盘剩余
     // 上传状态
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedFolderFiles, setSelectedFolderFiles] = useState<FileList | null>(null);
@@ -740,8 +741,13 @@ export default function Dashboard() {
         fetchFiles(); // 初始化加载文件
         fetch('/api/usage', { credentials: 'include' })
             .then(res => res.json())
-            .then(data => setUserUsageList(data.usage || []))
+            .then(data => {
+                setUserUsageList(data.usage || []);
+                setTotalUsed(data.totalUsed || '0 B'); // 存储已用
+                setTotalFree(data.totalFree || '0 B'); // 存储剩余
+            })
             .catch(err => console.error("Fetch usage list error:", err));
+
         if (folderInputRef.current) {
             folderInputRef.current.setAttribute('directory', '');
             folderInputRef.current.setAttribute('webkitdirectory', '');
@@ -768,18 +774,16 @@ export default function Dashboard() {
     }, [files]);
 
     // 计算总用量和 Top 5
-    const { totalDiskUsage, top5Users } = useMemo(() => {
+    const { top5Users } = useMemo(() => {
         if (!userUsageList || userUsageList.length === 0) {
-            return { totalDiskUsage: '0 B', top5Users: [] };
+            return { top5Users: [] };
         }
-        const totalBytes = userUsageList.reduce((sum, user) => sum + parseSize(user.size), 0);
-        const formattedTotal = formatBytes(totalBytes);
         const sortedUsers: TopUser[] = [...userUsageList]
             .map(user => ({ name: user.name, sizeBytes: parseSize(user.size) }))
             .sort((a, b) => b.sizeBytes - a.sizeBytes)
             .slice(0, 5)
             .map(user => ({ name: user.name, sizeFormatted: formatBytes(user.sizeBytes) }));
-        return { totalDiskUsage: formattedTotal, top5Users: sortedUsers };
+        return { top5Users: sortedUsers };
     }, [userUsageList]);
 
     // ==========================================
@@ -1097,7 +1101,8 @@ export default function Dashboard() {
                 usedSize={usage}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
-                totalDiskUsage={totalDiskUsage}
+                totalUsed={totalUsed}     // 传入已用
+                totalFree={totalFree}     // 传入剩余
                 top5Users={top5Users}
             />
 
