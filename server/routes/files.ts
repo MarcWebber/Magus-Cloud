@@ -481,6 +481,24 @@ function formatBytes(bytes, decimals = 2) {
 //     }
 // });
 
+function parseSize(sizeStr: string): number {
+  if (!isNaN(Number(sizeStr))) return Number(sizeStr);
+  const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
+  if (!match) return 0;
+  const [_, numStr, , unit] = match;
+  const num = parseFloat(numStr);
+  const unitMap: Record<string, number> = { BYTES: 1, B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
+  return num * (unitMap[unit.toUpperCase()] || 1);
+}
+
+function formatBytes(bytes: number, decimals = 2): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals < 0 ? 0 : decimals)) + ' ' + sizes[i];
+}
+
 router.get('/usage', authenticateToken, async (req, res) => {
   // dev 模式也返回新格式
   if (isDev) {

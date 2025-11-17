@@ -12,7 +12,7 @@
     "restart": "npm run start"
   },
   "devDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.52.2",
+
     "@types/archiver": "^6.0.3",
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.3",
