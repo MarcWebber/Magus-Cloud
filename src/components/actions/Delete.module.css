@@ -1,84 +1,102 @@
+/* src/components/actions/Delete.module.css */
+
 .mask {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    /*background: rgba(0, 0, 0, 0.45);*/
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 1100;
 }
 
 .modal {
     background: #fff;
     padding: 24px;
-    border-radius: 8px;
-    width: 500px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    width: 400px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    /* 一个微妙的弹入动画 */
+    animation: popIn 0.2s ease-out;
 }
 
-.title {
-    margin-bottom: 20px;
-    font-size: 18px;
-    font-weight: 600;
+@keyframes popIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.header {
+    display: flex;
     align-items: center;
-    text-align: center;
-}
-
-.section {
+    gap: 12px;
     margin-bottom: 16px;
 }
 
-.label {
-    display: block;
-    font-size: 14px;
-    margin-bottom: 6px;
-    font-weight: 500;
-}
-
-.input-row {
+/* 红色警告图标的背景 */
+.iconWrapper {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #fff1f0; /* 极淡的红色 */
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    color: #ff4d4f; /* 鲜红色 */
+    font-size: 20px;
+    flex-shrink: 0;
 }
 
-.input {
-    flex: 1;
-    padding: 6px 10px;
-    font-size: 13px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+.title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
 }
 
-.cancel {
-    padding: 6px 12px;
-    font-size: 13px;
-    background: #1677ff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+.content {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 24px;
+    padding-left: 52px; /* 与图标右侧对齐 */
+    line-height: 1.5;
 }
 
-.delete {
-    padding: 6px 12px;
-    font-size: 13px;
-    background: #1677ff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-
-.copy:hover .cancel:hover {
-    background: #1256c2;
+.fileName {
+    color: #333;
+    font-weight: 500;
+    word-break: break-all; /* 防止长文件名撑破 */
 }
 
 .actions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: 12px;
 }
+
+.btn {
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+/* 取消按钮 */
+.btnCancel {
+    background: #f5f5f5;
+    color: #666;
+}
+.btnCancel:hover { background: #e0e0e0; }
+.btnCancel:disabled { background: #f5f5f5; opacity: 0.6; }
+
+/* 删除按钮 (红色) */
+.btnDelete {
+    background: #ff4d4f;
+    color: white;
+    box-shadow: 0 2px 6px rgba(255, 77, 79, 0.3);
+}
+.btnDelete:hover { background: #ff7875; }
+.btnDelete:disabled { background: #ffa39e; cursor: not-allowed; }
