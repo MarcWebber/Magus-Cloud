@@ -527,7 +527,7 @@ router.get('/usage', authenticateToken, async (req, res) => {
       totalFree: formatBytes(totalFreeBytes)  // 格式化剩余
     });
 
-  } catch (err) : any {
+  } catch (err: any)  {
     logger.error(`获取用户用量失败：${err.message}`);
     res.status(500).json({ error: '无法获取用户用量信息' });
   }
