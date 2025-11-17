@@ -60,43 +60,138 @@ router.get('/files', ...useGuard(authenticateToken, (req, res) => {
   }
 }));
 
-
-router.post('/upload', authenticateToken, (req, res) => {
-  // 打印req.user
-  upload.single('file')(req, res, (err) => {
+//
+// router.post('/upload', authenticateToken, (req, res) => {
+//   // 打印req.user
+//   upload.single('file')(req, res, (err) => {
+//     logger.info("api/upload被运行了");
+//     console.log(`用户信息: ${JSON.stringify(req.user)}`);
+//     logger.info(`用户信息: ${JSON.stringify(req.user)}`);
+//     if (!req.file) {
+//       return res.status(400).json({ error: '未接收到文件' });
+//     }
+//     logger.info(`上传成功: ${req.file.originalname}`);
+//     res.json({ message: '上传成功', file: req.file.filename });
+//   });
+// });
+//
+// // 文件夹上传
+// router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), (req, res) => {
+//   try {
+//     // 1. 打印整个 req.files 数组（包含所有上传的文件信息）
+//     console.log('=== upload.array("folderFiles") 解析结果 ===');
+//     console.log('req.files:', req.files);
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({ message: '未选择文件夹或文件夹为空' });
+//     }
+//     console.log('req.files.length', req.files.length, 'req.body.folderName', req.body.folderName)
+//
+//     res.status(200).json({
+//       message: '文件夹上传成功',
+//       fileCount: req.files.length,
+//       folderName: req.body.folderName
+//     });
+//   } catch (error) {
+//     console.error('文件夹上传错误:', error);
+//     res.status(500).json({ message: '文件夹上传失败', error: error.message });
+//   }
+// });
+router.post('/upload', authenticateToken, (req: Request, res: Response) => {
+  upload.single('file')(req, res, async (err) => { // 1. 添加 async
     logger.info("api/upload被运行了");
-    console.log(`用户信息: ${JSON.stringify(req.user)}`);
-    logger.info(`用户信息: ${JSON.stringify(req.user)}`);
+
+    if (err) {
+      logger.error(`Multer 错误: ${err.message}`);
+      return res.status(500).json({ error: '文件上传失败' });
+    }
     if (!req.file) {
       return res.status(400).json({ error: '未接收到文件' });
     }
-    logger.info(`上传成功: ${req.file.originalname}`);
-    res.json({ message: '上传成功', file: req.file.filename });
+
+    //  移动文件
+    try {
+      const username = req.username || 'default';
+      const userDir = isDev
+          ? path.join(__dirname, '../uploads')
+          : `/www/wwwroot/${username}`;
+
+      // 确保用户目录存在
+      await fs.promises.mkdir(userDir, { recursive: true });
+
+      // req.file.path 是 /tmp 里的临时路径
+      // targetPath 是 /www/wwwroot/ 里的目标路径
+      const tempPath = req.file.path;
+      const targetPath = path.resolve(userDir, req.file.originalname);
+
+      // 移动文件
+      await fs.promises.rename(tempPath, targetPath);
+
+      logger.info(`上传成功: ${req.file.originalname} -> ${targetPath}`);
+      res.json({ message: '上传成功', file: req.file.originalname }); // 返回原始文件名
+
+    } catch (moveError: any) {
+      logger.error(`移动文件失败: ${moveError.message}`);
+      // 尝试清理临时文件
+      try { await fs.promises.unlink(req.file.path); } catch (e) {}
+      res.status(500).json({ error: '保存文件失败' });
+    }
   });
 });
 
 // 文件夹上传
-router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), (req, res) => {
+router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), async (req: Request, res: Response) => { // 1. 添加 async
   try {
-    // 1. 打印整个 req.files 数组（包含所有上传的文件信息）
-    console.log('=== upload.array("folderFiles") 解析结果 ===');
-    console.log('req.files:', req.files);
-    if (!req.files || req.files.length === 0) {
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
       return res.status(400).json({ message: '未选择文件夹或文件夹为空' });
     }
-    console.log('req.files.length', req.files.length, 'req.body.folderName', req.body.folderName)
+
+    const { folderName } = req.body;
+    if (!folderName) {
+      return res.status(400).json({ message: '缺少文件夹名称' });
+    }
+
+    // 核心修复：循环移动所有文件
+    const username = req.username || 'default';
+    const userDir = isDev
+        ? path.join(__dirname, '../uploads')
+        : `/www/wwwroot/${username}`;
+
+    // 目标文件夹路径 (例如 /www/wwwroot/username/MyFolder)
+    const targetFolderDir = path.resolve(userDir, folderName);
+    await fs.promises.mkdir(targetFolderDir, { recursive: true });
+
+    for (const file of req.files as Express.Multer.File[]) {
+      // file.webkitRelativePath 包含子目录结构 (例如 MyFolder/sub/file.txt)
+      // 我们需要去掉最顶层的 MyFolder/
+      const relativePath = file.webkitRelativePath.substring(file.webkitRelativePath.indexOf('/') + 1);
+
+      const tempPath = file.path;
+      const targetPath = path.resolve(userDir, relativePath); // 直接用 userDir + 相对路径
+
+      // 确保子目录也存在
+      await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+
+      // 移动文件
+      await fs.promises.rename(tempPath, targetPath);
+    }
 
     res.status(200).json({
       message: '文件夹上传成功',
       fileCount: req.files.length,
-      folderName: req.body.folderName
+      folderName: folderName
     });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('文件夹上传错误:', error);
+    // 尝试清理所有临时文件
+    if (Array.isArray(req.files)) {
+      for (const file of req.files) {
+        try { await fs.promises.unlink(file.path); } catch(e) {}
+      }
+    }
     res.status(500).json({ message: '文件夹上传失败', error: error.message });
   }
 });
-
 //
 // router.get('/download', async (req: Request, res: Response) => {
 //   try {
