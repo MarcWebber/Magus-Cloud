@@ -559,7 +559,29 @@ function formatBytes(bytes: number, decimals = 2): string {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals < 0 ? 0 : decimals)) + ' ' + sizes[i];
 }
+function formatServerDate(dateString?: string): string | undefined {
+    if (!dateString) {
+        return undefined;
+    }
+    try {
+        const date = new Date(dateString);
 
+        // 使用 'sv-SE' (瑞典) locale 可以得到 YYYY-MM-DD HH:mm 格式
+        // 并且 date.toLocaleString 会自动处理时区转换
+        return date.toLocaleString('sv-SE', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).replace('T', ' '); // 有些浏览器会输出 T，替换为空格
+
+    } catch (error) {
+        // 如果解析失败，返回原始值（去掉毫秒）
+        return dateString.split('.')[0].replace('T', ' ');
+    }
+}
 function addIdsAndCalculateSize(nodes: FileItem[], parentId = ""): FileTreeNode[] {
     return nodes.map((node) => {
         const id = parentId ? `${parentId}/${node.name}` : node.name;
@@ -578,7 +600,8 @@ function addIdsAndCalculateSize(nodes: FileItem[], parentId = ""): FileTreeNode[
             name: node.name,
             type: node.type,
             size: formattedSize, // 使用格式化后的值
-            mtime: node.mtime ? node.mtime.replace('T', ' ').replace('Z', '') : undefined,
+            // mtime: node.mtime ? node.mtime.replace('T', ' ').replace('Z', '') : undefined,
+            mtime: formatServerDate(node.mtime),
             children: [],
         };
 
