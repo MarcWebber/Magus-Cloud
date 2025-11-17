@@ -482,13 +482,7 @@ function formatBytes(bytes, decimals = 2) {
 // });
 
 router.get('/usage', authenticateToken, async (req, res) => {
-  if (isDev) {
-    // 开发环境下返回模拟数据
-    const devData = DevEnvGetUserUsage();
-    // 🔥 新增：在开发模式下模拟一个 50GB 的总容量
-    devData.totalCapacity = 53687091200; // (50 * 1024 * 1024 * 1024)
-    return res.json(devData);
-  }
+
 
   // 生产环境
   const rootDir = `/www/wwwroot`;
