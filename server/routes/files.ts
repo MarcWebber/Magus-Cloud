@@ -18,7 +18,7 @@ import crypto from 'crypto';
 import XLSX from 'xlsx';
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
-
+import * as diskusage from 'diskusage';
 
 // 封装一个递归读取文件夹的函数
 const readDirRecursive = (dirPath) => {
@@ -440,48 +440,93 @@ function formatBytes(bytes, decimals = 2) {
 }
 
 // 获取总体的用量情况，按人分组
+// router.get('/usage', authenticateToken, async (req, res) => {
+//     if (isDev) {
+//         // 开发环境下返回模拟数据
+//         return res.json(DevEnvGetUserUsage());
+//     }
+//
+//     // 生产环境的根目录 (假设用户目录就在此目录下)
+//     // ⚠ 注意：如果 /www/wwwroot 包含非用户目录，用量统计仍会不准确！
+//     const rootDir = `/www/wwwroot`;
+//
+//     // calculate the total size of files for each user
+//     try {
+//         // 1. 读取 rootDir 下的所有目录作为用户
+//         const users = fs.readdirSync(rootDir).filter(name => {
+//             // 确保是目录，并排除隐藏文件（例如 .git, .DS_Store 等）
+//             const fullPath = path.join(rootDir, name);
+//             return fs.statSync(fullPath).isDirectory() && !name.startsWith('.');
+//         });
+//
+//         const usage = await Promise.all(users.map(async user => {
+//             // 🚀 修正：使用 path.join 来安全地拼接路径
+//             const userDir = path.join(rootDir, user);
+//             const sizeInBytes = await getDirectorySize(userDir); // 假设返回字节数 (number)
+//
+//             // 💡 优化：在后端进行格式化，确保前端接收到带单位的字符串
+//             const sizeFormatted = formatBytes(sizeInBytes);
+//
+//             const name = user;
+//
+//             // 返回格式化后的 size 字符串，解决了前端总用量显示格式问题
+//             return { name, size: sizeFormatted };
+//         }));
+//
+//         logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
+//         res.json({ usage: usage });
+//     } catch (err) {
+//         logger.error(`获取用户用量失败：${err.message}`);
+//         res.status(500).json({ error: '无法获取用户用量信息' });
+//     }
+// });
+
 router.get('/usage', authenticateToken, async (req, res) => {
-    if (isDev) {
-        // 开发环境下返回模拟数据
-        return res.json(DevEnvGetUserUsage());
-    }
+  if (isDev) {
+    // 开发环境下返回模拟数据
+    const devData = DevEnvGetUserUsage();
+    // 🔥 新增：在开发模式下模拟一个 50GB 的总容量
+    devData.totalCapacity = 53687091200; // (50 * 1024 * 1024 * 1024)
+    return res.json(devData);
+  }
 
-    // 生产环境的根目录 (假设用户目录就在此目录下)
-    // ⚠ 注意：如果 /www/wwwroot 包含非用户目录，用量统计仍会不准确！
-    const rootDir = `/www/wwwroot`; 
+  // 生产环境
+  const rootDir = `/www/wwwroot`;
 
-    // calculate the total size of files for each user
-    try {
-        // 1. 读取 rootDir 下的所有目录作为用户
-        const users = fs.readdirSync(rootDir).filter(name => {
-            // 确保是目录，并排除隐藏文件（例如 .git, .DS_Store 等）
-            const fullPath = path.join(rootDir, name);
-            return fs.statSync(fullPath).isDirectory() && !name.startsWith('.');
-        });
+  try {
+    // 1. 读取 rootDir 下的所有目录作为用户 (保持不变)
+    const users = fs.readdirSync(rootDir).filter(name => {
+      const fullPath = path.join(rootDir, name);
+      return fs.statSync(fullPath).isDirectory() && !name.startsWith('.');
+    });
 
-        const usage = await Promise.all(users.map(async user => {
-            // 🚀 修正：使用 path.join 来安全地拼接路径
-            const userDir = path.join(rootDir, user);
-            const sizeInBytes = await getDirectorySize(userDir); // 假设返回字节数 (number)
-            
-            // 💡 优化：在后端进行格式化，确保前端接收到带单位的字符串
-            const sizeFormatted = formatBytes(sizeInBytes); 
-            
-            const name = user;
-            
-            // 返回格式化后的 size 字符串，解决了前端总用量显示格式问题
-            return { name, size: sizeFormatted }; 
-        }));
+    // 2. 计算每个用户的用量 (保持不变)
+    const usage = await Promise.all(users.map(async user => {
+      const userDir = path.join(rootDir, user);
+      const sizeInBytes = await getDirectorySize(userDir);
+      const sizeFormatted = formatBytes(sizeInBytes);
+      const name = user;
+      return { name, size: sizeFormatted };
+    }));
 
-        logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
-        res.json({ usage: usage });
-    } catch (err) {
-        logger.error(`获取用户用量失败：${err.message}`);
-        res.status(500).json({ error: '无法获取用户用量信息' });
-    }
+    // 🔥 3. 新增：获取磁盘总容量
+    // 我们检查 rootDir 所在的磁盘分区
+    const diskInfo = await diskusage.check(rootDir);
+    const totalCapacity = diskInfo.total; // 单位: 字节 (number)
+
+    logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
+
+    // 🔥 4. 修改：在响应中加入 totalCapacity
+    res.json({
+      usage: usage,
+      totalCapacity: totalCapacity // (e.g., 107374182400)
+    });
+
+  } catch (err) {
+    logger.error(`获取用户用量失败：${err.message}`);
+    res.status(500).json({ error: '无法获取用户用量信息' });
+  }
 });
-
-
 
 // ===== MIME / 扩展名 =====
 const mimeByExt: Record<string, string> = {
