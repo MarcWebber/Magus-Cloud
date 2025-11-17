@@ -18,7 +18,7 @@ import crypto from 'crypto';
 import XLSX from 'xlsx';
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
-import * as diskusage from 'diskusage';
+import checkDiskSpace from 'check-disk-space';
 
 // 封装一个递归读取文件夹的函数
 const readDirRecursive = (dirPath) => {
@@ -509,10 +509,10 @@ router.get('/usage', authenticateToken, async (req, res) => {
       return { name, size: sizeFormatted };
     }));
 
-    // 🔥 3. 新增：获取磁盘总容量
+    // 获取磁盘总容量
     // 我们检查 rootDir 所在的磁盘分区
-    const diskInfo = await diskusage.check(rootDir);
-    const totalCapacity = diskInfo.total; // 单位: 字节 (number)
+    const diskInfo = await checkDiskSpace(rootDir);
+    const totalCapacity = diskInfo.size; // 单位: 字节 (number)
 
     logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
 
