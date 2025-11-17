@@ -622,9 +622,7 @@ export default function Dashboard() {
     const [uploadError, setUploadError] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
 
-    // --- Refs ---
     const folderInputRef = useRef<HTMLInputElement>(null);
-    // 🔥 新增：用于保存 xhr 请求的 Ref
     const xhrRef = useRef<XMLHttpRequest | null>(null);
 
     // 2. 数据获取 (API)
@@ -668,7 +666,6 @@ export default function Dashboard() {
             })
             .catch(err => console.error("Fetch usage list error:", err));
 
-        // 🔥 修复 TS 报错：添加 null 检查
         if (folderInputRef.current) {
             folderInputRef.current.setAttribute('directory', '');
             folderInputRef.current.setAttribute('webkitdirectory', '');
@@ -723,6 +720,7 @@ export default function Dashboard() {
     const totalPages = Math.ceil(processedItems.length / PAGE_SIZE);
     const paginatedItems = processedItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+
     // ==========================================
     // 4. 交互 Handlers
     // ==========================================
@@ -771,7 +769,6 @@ export default function Dashboard() {
         }
     };
 
-    // 🔥 修改：上传逻辑 (添加 xhrRef 和 null 检查)
     const handleUpload = (isFolder = false) => {
         if ((!selectedFile && !selectedFolderFiles) || uploading) return;
         if (xhrRef.current) xhrRef.current.abort();
@@ -828,7 +825,6 @@ export default function Dashboard() {
         xhr.send(formData);
     };
 
-    // 🔥 新增：取消上传
     const handleCancelUpload = () => {
         if (xhrRef.current) {
             xhrRef.current.abort();
@@ -850,6 +846,39 @@ export default function Dashboard() {
             return ( <ShareList items={shareItems} onCancelShare={handleCancelShare} /> );
         }
 
+        // --- 场景 B: 全部文件 ---
+
+        // 🔥 新增：分页按钮样式
+        const paginationBtnStyle: React.CSSProperties = {
+            padding: '6px 14px',
+            cursor: 'pointer',
+            border: '1px solid #ddd',
+            background: '#ffffff',
+            borderRadius: '6px',
+            fontSize: '14px',
+            transition: 'all 0.2s',
+            color: '#333',
+        };
+        const paginationBtnDisabledStyle: React.CSSProperties = {
+            ...paginationBtnStyle,
+            opacity: 0.5,
+            cursor: 'not-allowed',
+            background: '#f9f9f9',
+            color: '#aaa',
+        };
+        const addHoverStyles = (e: React.MouseEvent<HTMLButtonElement>, isDisabled: boolean) => {
+            if (!isDisabled) {
+                e.currentTarget.style.borderColor = '#3b8cff';
+                e.currentTarget.style.color = '#3b8cff';
+            }
+        };
+        const removeHoverStyles = (e: React.MouseEvent<HTMLButtonElement>, isDisabled: boolean) => {
+            if (!isDisabled) {
+                e.currentTarget.style.borderColor = '#ddd';
+                e.currentTarget.style.color = '#333';
+            }
+        };
+
         return (
             <>
                 {/* 🔥 修复：上传卡片 (恢复所有 className 和 JSX 结构) */}
@@ -865,6 +894,7 @@ export default function Dashboard() {
                         }}>
                             {/* 左侧按钮组 */}
                             <div className="upload-section" style={{ margin: 0, display: 'flex', gap: '12px' }}>
+                                {/* ✅ 确保 ID 和 htmlFor 对应 */}
                                 <input type="file" id="file-input" style={{display: 'none'}} onChange={handleFileChange} />
                                 <label htmlFor="file-input" className="upload-btn">
                                     <i className="fa-solid fa-cloud-arrow-up" style={{marginRight: '8px'}}></i> 上传文件
@@ -893,7 +923,7 @@ export default function Dashboard() {
 
                     {/* --- 进度条行 (仅在上传时显示) --- */}
                     {uploading && (
-                        <div style={{ marginTop: '0px' }}> {/* 优化间距 */}
+                        <div style={{ marginTop: '0px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
                                 <span className="selected-file" style={{ flexShrink: 0, maxWidth: '200px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                                     <i className="fa-solid fa-spinner fa-spin" style={{marginRight: '8px', color: 'var(--primary-color)'}}></i>
@@ -935,15 +965,36 @@ export default function Dashboard() {
                         sortConfig={sortConfig}
                         onSort={handleSort}
                     />
+
+                    {/* 🔥 修复：分页按钮 (应用新样式) */}
                     <div style={{
-                        display: 'flex', justifyContent: 'center', alignItems: 'center',
-                        marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #f0f2f5'
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        marginTop: '20px',
+                        paddingTop: '16px',
+                        borderTop: '1px solid #f0f2f5',
+                        gap: '16px' // 使用 gap 替代 margin
                     }}>
-                        <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            style={currentPage === 1 ? paginationBtnDisabledStyle : paginationBtnStyle}
+                            onMouseEnter={(e) => addHoverStyles(e, currentPage === 1)}
+                            onMouseLeave={(e) => removeHoverStyles(e, currentPage === 1)}
+                        >
                             &lt; 上一页
                         </button>
-                        <span> 第 {currentPage} 页 / 共 {totalPages} 页 </span>
-                        <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage >= totalPages}>
+                        <span style={{color: '#888', fontSize: '14px', whiteSpace: 'nowrap'}}>
+                            第 {currentPage} 页 / 共 {totalPages} 页
+                        </span>
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage >= totalPages}
+                            style={currentPage >= totalPages ? paginationBtnDisabledStyle : paginationBtnStyle}
+                            onMouseEnter={(e) => addHoverStyles(e, currentPage >= totalPages)}
+                            onMouseLeave={(e) => removeHoverStyles(e, currentPage >= totalPages)}
+                        >
                             下一页 &gt;
                         </button>
                     </div>
