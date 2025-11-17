@@ -418,7 +418,7 @@ import Preview from '../actions/Preview.tsx';
 import Share from "../actions/Share.tsx";
 import Delete from "../actions/Delete.tsx";
 
-// 定义文件节点类型 (保持不变)
+// 定义文件节点 (不变)
 export type FileTreeNode = {
     id: string;
     name: string;
@@ -428,25 +428,34 @@ export type FileTreeNode = {
     mtime?: string;
 };
 
-// 新的 Props 定义：接收扁平的 items 数组，而不是树结构
-interface FileTreeProps {
-    items: FileTreeNode[];
-    onNavigate: (folderName: string) => void; // 进入文件夹的回调
-    onDelete?: (id: string) => void;          // 删除成功后的回调(可选)
+// 定义并导出排序类型
+export type SortKey = 'name' | 'size' | 'mtime';
+type SortDirection = 'asc' | 'desc';
+export interface SortConfig { // 导出接口，方便 Dashboard 使用
+    key: SortKey;
+    direction: SortDirection;
 }
 
-export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps) {
-    // --- 状态管理：控制各个弹窗的显示 ---
-    // 使用对象来存储当前操作的文件，非 null 即表示弹窗开启
+// 升级 Props 定义
+interface FileTreeProps {
+    items: FileTreeNode[];
+    onNavigate: (folderName: string) => void;
+    onDelete?: (id: string) => void;
+    // 新增 Props
+    sortConfig: SortConfig;
+    onSort: (key: SortKey) => void;
+}
+
+export default function FileTree({ items, onNavigate, onDelete, sortConfig, onSort }: FileTreeProps) {
+    // --- 状态管理 (弹窗) ---
     const [previewTarget, setPreviewTarget] = useState<FileTreeNode | null>(null);
     const [shareTarget, setShareTarget] = useState<FileTreeNode | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<FileTreeNode | null>(null);
 
-    // --- 辅助函数：图标样式 ---
+    // --- 辅助函数 (图标) ---
     const getIconClass = (type: string, name: string) => {
         if (type === 'folder') return "fa-solid fa-folder";
         const ext = name.split('.').pop()?.toLowerCase();
-        // 根据扩展名返回 FontAwesome 图标类名
         if (['jpg', 'png', 'jpeg', 'gif', 'webp'].includes(ext || '')) return "fa-solid fa-image";
         if (['pdf'].includes(ext || '')) return "fa-solid fa-file-pdf";
         if (['doc', 'docx'].includes(ext || '')) return "fa-solid fa-file-word";
@@ -456,24 +465,20 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
         if (['mp4', 'mkv', 'avi', 'mov'].includes(ext || '')) return "fa-solid fa-file-video";
         if (['mp3', 'wav', 'flac'].includes(ext || '')) return "fa-solid fa-file-audio";
         if (['txt', 'md', 'json', 'js', 'css', 'html', 'py', 'java', 'c', 'cpp'].includes(ext || '')) return "fa-solid fa-file-code";
-        return "fa-solid fa-file"; // 默认图标
+        return "fa-solid fa-file";
     };
-
-    // --- 辅助函数：图标颜色 ---
     const getIconColor = (type: string, name: string) => {
-        if (type === 'folder') return "#FFC107"; // 文件夹经典黄
+        if (type === 'folder') return "#FFC107";
         const ext = name.split('.').pop()?.toLowerCase();
-        if (['jpg', 'png', 'jpeg', 'gif'].includes(ext || '')) return "#4CAF50"; // 图片绿
-        if (['pdf'].includes(ext || '')) return "#F44336"; // PDF红
-        if (['doc', 'docx'].includes(ext || '')) return "#2196F3"; // Word蓝
-        if (['ppt', 'pptx'].includes(ext || '')) return "#FF5722"; // PPT橙
-        if (['zip', 'rar', '7z'].includes(ext || '')) return "#9C27B0"; // 压缩包紫
-        return "#888"; // 默认灰
+        if (['jpg', 'png', 'jpeg', 'gif'].includes(ext || '')) return "#4CAF50";
+        if (['pdf'].includes(ext || '')) return "#F44336";
+        if (['doc', 'docx'].includes(ext || '')) return "#2196F3";
+        if (['ppt', 'pptx'].includes(ext || '')) return "#FF5722";
+        if (['zip', 'rar', '7z'].includes(ext || '')) return "#9C27B0";
+        return "#888";
     };
 
-    // --- 交互逻辑 ---
-
-    // 行点击：文件夹->进入，文件->预览
+    // --- 交互逻辑 (不变) ---
     const handleRowClick = (item: FileTreeNode) => {
         if (item.type === 'folder') {
             onNavigate(item.name);
@@ -481,8 +486,6 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
             setPreviewTarget(item);
         }
     };
-
-    // 操作按钮点击 (需要阻止冒泡，防止触发 handleRowClick)
     const handleAction = (e: React.MouseEvent, action: 'download' | 'share' | 'delete', item: FileTreeNode) => {
         e.stopPropagation();
         switch (action) {
@@ -498,20 +501,68 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
         }
     };
 
+    // 渲染排序箭头 ---
+    const renderSortArrow = (key: SortKey) => {
+        if (sortConfig.key !== key) return null; // 未选中此列
+
+        const arrowStyle: React.CSSProperties = {
+            marginLeft: '6px',
+            color: '#3b8cff' // 激活的箭头用主题色
+        };
+
+        if (sortConfig.direction === 'asc') {
+            return <span style={arrowStyle}>▲</span>; // 升序
+        } else {
+            return <span style={arrowStyle}>▼</span>; // 降序
+        }
+    };
+
+    // 表头点击的辅助样式
+    const headerColStyle = (key: SortKey): React.CSSProperties => ({
+        cursor: 'pointer',
+        fontWeight: sortConfig.key === key ? 600 : 500, // 激活的列加粗
+        color: sortConfig.key === key ? '#3b8cff' : '#888', // 激活的列变蓝
+        transition: 'color 0.2s',
+    });
+
+
+    // --- 渲染：通用表头 (提取为可复用组件) ---
+    const renderHeader = () => (
+        <div className={Styles.header}>
+            <span
+                className={Styles.colName}
+                style={headerColStyle('name')}
+                onClick={() => onSort('name')}
+            >
+                文件名{renderSortArrow('name')}
+            </span>
+            <span
+                className={Styles.colSize}
+                style={headerColStyle('size')}
+                onClick={() => onSort('size')}
+            >
+                大小{renderSortArrow('size')}
+            </span>
+            <span
+                className={Styles.colDate}
+                style={headerColStyle('mtime')}
+                onClick={() => onSort('mtime')}
+            >
+                修改日期{renderSortArrow('mtime')}
+            </span>
+            <span className={Styles.colActions}>操作</span>
+        </div>
+    );
+
     // --- 渲染：空状态 ---
     if (!items || items.length === 0) {
         return (
             <div className={Styles.container}>
-                {/* 保留表头，让界面结构不塌陷 */}
-                <div className={Styles.header}>
-                    <span className={Styles.colName}>文件名</span>
-                    <span className={Styles.colSize}>大小</span>
-                    <span className={Styles.colDate}>修改日期</span>
-                    <span className={Styles.colActions}>操作</span>
-                </div>
+                {/* 使用 renderHeader */}
+                {renderHeader()}
                 <div className={Styles.emptyState}>
                     <i className="fa-regular fa-folder-open" style={{fontSize: '48px', marginBottom: '16px', color: '#eee'}}></i>
-                    <p>此文件夹为空</p>
+                    <p>此文件夹为空，或未找到搜索结果</p>
                 </div>
             </div>
         );
@@ -520,15 +571,10 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
     // --- 渲染：列表状态 ---
     return (
         <div className={Styles.container}>
-            {/* 1. 表头 */}
-            <div className={Styles.header}>
-                <span className={Styles.colName}>文件名</span>
-                <span className={Styles.colSize}>大小</span>
-                <span className={Styles.colDate}>修改日期</span>
-                <span className={Styles.colActions}>操作</span>
-            </div>
+            {/* 使用 renderHeader */}
+            {renderHeader()}
 
-            {/* 2. 列表项循环 */}
+            {/* 列表项循环 */}
             {items.map((item) => (
                 <div key={item.id} className={Styles.row} onClick={() => handleRowClick(item)}>
 
@@ -551,14 +597,13 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
 
                     {/* 操作列 (悬停显示) */}
                     <div className={Styles.colActions}>
-                        {/* 文件夹通常不支持直接下载，或者逻辑不同 */}
-                            <button
-                                className={Styles.actionBtn}
-                                title="下载"
-                                onClick={(e) => handleAction(e, 'download', item)}
-                            >
-                                <i className="fa-solid fa-download"></i>
-                            </button>
+                        <button
+                            className={Styles.actionBtn}
+                            title="下载"
+                            onClick={(e) => handleAction(e, 'download', item)}
+                        >
+                            <i className="fa-solid fa-download"></i>
+                        </button>
                         <button
                             className={Styles.actionBtn}
                             title="分享"
@@ -577,9 +622,7 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
                 </div>
             ))}
 
-            {/* --- 弹窗组件区域 (挂载在底部) --- */}
-
-            {/* 预览弹窗 */}
+            {/* --- 弹窗组件区域 --- */}
             {previewTarget && (
                 <Preview
                     visible={!!previewTarget}
@@ -589,27 +632,23 @@ export default function FileTree({ items, onNavigate, onDelete }: FileTreeProps)
                     onClose={() => setPreviewTarget(null)}
                 />
             )}
-
-            {/* 分享弹窗 */}
             {shareTarget && (
                 <Share
                     visible={!!shareTarget}
-                    fileName={shareTarget.id} // 注意：你的 Share 组件可能需要 id 或 name，根据你原代码传入 id
+                    fileName={shareTarget.id}
                     type={shareTarget.type}
                     onClose={() => setShareTarget(null)}
                 />
             )}
-
-            {/* 删除弹窗 */}
             {deleteTarget && (
                 <Delete
                     visible={!!deleteTarget}
-                    fileName={deleteTarget.id} // 同上
-                    onClose={() => {
+                    fileName={deleteTarget.id}
+                    onClose={() => setDeleteTarget(null)}
+                    // 确保 onSuccess 回调已连接
+                    onSuccess={() => {
                         setDeleteTarget(null);
-                        // 如果 Delete 组件内部处理了删除逻辑并成功，
-                        // 理想情况下应该调用 onDelete?.(deleteTarget.id) 来刷新列表
-                        // 但鉴于 Delete 组件逻辑未知，这里仅关闭弹窗
+                        if (onDelete) onDelete(deleteTarget.id); // 通知 Dashboard 刷新
                     }}
                 />
             )}

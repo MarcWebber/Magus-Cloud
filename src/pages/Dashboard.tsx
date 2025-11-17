@@ -527,10 +527,11 @@
 // }
 
 // src/pages/Dashboard.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import "../styles/Dashboard.css";
-import type { FileTreeNode } from "../components/file_tree/FileTree.tsx";
-import FileTree from "../components/file_tree/FileTree.tsx";
+// import type { FileTreeNode } from "../components/file_tree/FileTree.tsx";
+// import FileTree from "../components/file_tree/FileTree.tsx";
+import FileTree, { FileTreeNode, SortKey } from "../components/file_tree/FileTree.tsx";
 import Sidebar from "./Sidebar.tsx";
 import Header from "../components/header/Header.tsx";
 import ShareList, { ShareItem } from "../components/actions/ShareList.tsx"; // 引入分享列表
@@ -562,21 +563,57 @@ function formatBytes(bytes: number, decimals = 2): string {
 function addIdsAndCalculateSize(nodes: FileItem[], parentId = ""): FileTreeNode[] {
     return nodes.map((node) => {
         const id = parentId ? `${parentId}/${node.name}` : node.name;
+
+        let nodeSizeInBytes = 0;
+        let formattedSize = node.size; // 默认为原始值
+
+        // 🔥 修复：如果节点是文件，立即解析并格式化它的大小
+        if (node.type === 'file' && node.size) {
+            nodeSizeInBytes = parseSize(node.size); // 1. 解析
+            formattedSize = formatBytes(nodeSizeInBytes);  // 2. 格式化 (e.g., "63.41 KB")
+        }
+
         const newNode: FileTreeNode = {
-            id, name: node.name, type: node.type, size: node.size,
-            mtime: node.mtime ? node.mtime.replace('T', ' ').replace('Z', '') : undefined, children: [],
+            id,
+            name: node.name,
+            type: node.type,
+            size: formattedSize, // 使用格式化后的值
+            mtime: node.mtime ? node.mtime.replace('T', ' ').replace('Z', '') : undefined,
+            children: [],
         };
+
+        // 如果是文件夹，递归处理子节点
         if (node.type === 'folder' && Array.isArray(node.children)) {
             newNode.children = addIdsAndCalculateSize(node.children, id);
+
+            // 累加所有子节点的大小 (parseSize 可以正确解析 "63.41 KB" 这类字符串)
             const folderTotalSize = newNode.children.reduce((sum, child) => {
                 return sum + (child.size ? parseSize(child.size) : 0);
             }, 0);
+
+            // 格式化文件夹的总大小
             newNode.size = formatBytes(folderTotalSize);
         }
+
         return newNode;
     });
 }
 
+// const getCurrentFolderChildren = (rootData: FileTreeNode[], path: string[]): FileTreeNode[] => {
+//     let currentLevel = rootData;
+//     for (const folderName of path) {
+//         const foundNode = currentLevel.find(node => node.name === folderName && node.type === 'folder');
+//         if (foundNode && foundNode.children) {
+//             currentLevel = foundNode.children;
+//         } else {
+//             return [];
+//         }
+//     }
+//     return [...currentLevel].sort((a, b) => {
+//         if (a.type === b.type) return 0;
+//         return a.type === 'folder' ? -1 : 1;
+//     });
+// };
 const getCurrentFolderChildren = (rootData: FileTreeNode[], path: string[]): FileTreeNode[] => {
     let currentLevel = rootData;
     for (const folderName of path) {
@@ -587,11 +624,17 @@ const getCurrentFolderChildren = (rootData: FileTreeNode[], path: string[]): Fil
             return [];
         }
     }
-    return [...currentLevel].sort((a, b) => {
-        if (a.type === b.type) return 0;
-        return a.type === 'folder' ? -1 : 1;
-    });
+    return [...currentLevel]; // 返回原始数组
 };
+
+
+type SortDirection = 'asc' | 'desc';
+interface SortConfig {
+    key: SortKey;
+    direction: SortDirection;
+}
+
+const PAGE_SIZE = 10;
 
 export default function Dashboard() {
     // ==========================================
@@ -608,7 +651,10 @@ export default function Dashboard() {
 
     // 分享列表状态
     const [shareItems, setShareItems] = useState<ShareItem[]>([]);
-
+    // 排序、搜索、分页状态
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
     // 上传状态
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedFolderFiles, setSelectedFolderFiles] = useState<FileList | null>(null);
@@ -709,6 +755,27 @@ export default function Dashboard() {
         setCurrentPath([...currentPath, folderName]);
     };
 
+    // 排序 Handler
+    const handleSort = (key: SortKey) => {
+        let direction: SortDirection = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+        setCurrentPage(1); // 排序后重置到第一页
+    };
+
+    // 搜索 Handler
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(1); // 搜索后重置到第一页
+    };
+
+    // 分页 Handler
+    const handlePageChange = (newPage: number) => {
+        setCurrentPage(newPage);
+    };
+
     // 上传逻辑 (保持不变)
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -775,6 +842,52 @@ export default function Dashboard() {
         xhr.withCredentials = true;
         xhr.send(formData);
     };
+
+    // 此块代码将自动在依赖项 (data, currentPath, searchTerm, sortConfig) 变化时
+    // 重新计算列表，而在其他 state 变化时使用缓存，性能极高。
+    const processedItems = useMemo(() => {
+        // 1. 获取基础数据
+        let items = getCurrentFolderChildren(data, currentPath);
+
+        // 2. 应用搜索过滤
+        if (searchTerm) {
+            items = items.filter(item =>
+                item.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // 3. 应用排序 (文件夹优先)
+        items.sort((a, b) => {
+            // 规则1：文件夹始终排在文件前面
+            if (a.type === 'folder' && b.type !== 'folder') return -1;
+            if (a.type !== 'folder' && b.type === 'folder') return 1;
+
+            // 规则2：按用户选择的列排序
+            const { key, direction } = sortConfig;
+            const dir = direction === 'asc' ? 1 : -1;
+
+            switch (key) {
+                case 'size':
+                    return (parseSize(a.size || '0') - parseSize(b.size || '0')) * dir;
+                case 'mtime':
+                    const dateA = a.mtime ? new Date(a.mtime).getTime() : 0;
+                    const dateB = b.mtime ? new Date(b.mtime).getTime() : 0;
+                    return (dateA - dateB) * dir;
+                case 'name':
+                default:
+                    return a.name.localeCompare(b.name) * dir;
+            }
+        });
+
+        return items;
+    }, [data, currentPath, searchTerm, sortConfig]);
+
+    // 计算分页
+    const totalPages = Math.ceil(processedItems.length / PAGE_SIZE);
+    const paginatedItems = processedItems.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE
+    );
 
     // ==========================================
     // 5. 视图渲染
@@ -847,18 +960,84 @@ export default function Dashboard() {
                 </div>
 
                 {/* 文件列表 */}
+                {/*<div className="file-tree-container" style={{*/}
+                {/*    background: 'transparent',*/}
+                {/*    minHeight: '400px'*/}
+                {/*}}>*/}
+                {/*    <FileTree*/}
+                {/*        items={currentItems}*/}
+                {/*        onNavigate={handleFolderClick}*/}
+                {/*        onDelete={(id) => {*/}
+                {/*            console.log('deleted', id);*/}
+                {/*            fetchFiles(); // 删除后刷新*/}
+                {/*        }}*/}
+                {/*    />*/}
                 <div className="file-tree-container" style={{
-                    background: 'transparent',
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '24px',
+                    boxShadow: 'var(--shadow-sm)',
                     minHeight: '400px'
                 }}>
+                    {/* 🔥 12. 新增搜索框 */}
+                    <input
+                        type="text"
+                        placeholder="在当前文件夹中搜索..."
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        style={{
+                            width: 'calc(100% - 24px)',
+                            padding: '10px 12px',
+                            border: '1px solid #ddd',
+                            borderRadius: '6px',
+                            marginBottom: '16px',
+                            fontSize: '14px',
+                            outline: 'none',
+                            transition: 'border-color 0.2s',
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#3b8cff'}
+                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                    />
+
+                    {/* 🔥 13. 传入排序 Props */}
                     <FileTree
-                        items={currentItems}
+                        items={paginatedItems} // ✅ 传入分页后的列表
                         onNavigate={handleFolderClick}
                         onDelete={(id) => {
                             console.log('deleted', id);
-                            fetchFiles(); // 删除后刷新
+                            fetchFiles();
                         }}
+                        sortConfig={sortConfig} // ✅ 传入当前排序
+                        onSort={handleSort}     // ✅ 传入排序回调
                     />
+
+                    {/* 🔥 14. 新增分页控制器 */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        marginTop: '20px',
+                        paddingTop: '16px',
+                        borderTop: '1px solid #f0f2f5'
+                    }}>
+                        <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            style={{ padding: '4px 12px', cursor: 'pointer', marginRight: '16px', opacity: currentPage === 1 ? 0.5 : 1 }}
+                        >
+                            &lt; 上一页
+                        </button>
+                        <span>
+                            第 {currentPage} 页 / 共 {totalPages} 页
+                        </span>
+                        <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage >= totalPages}
+                            style={{ padding: '4px 12px', cursor: 'pointer', marginLeft: '16px', opacity: currentPage >= totalPages ? 0.5 : 1 }}
+                        >
+                            下一页 &gt;
+                        </button>
+                    </div>
                 </div>
             </>
         );
