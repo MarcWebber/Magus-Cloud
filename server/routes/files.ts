@@ -491,13 +491,6 @@ function parseSize(sizeStr: string): number {
   return num * (unitMap[unit.toUpperCase()] || 1);
 }
 
-function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals < 0 ? 0 : decimals)) + ' ' + sizes[i];
-}
 
 router.get('/usage', authenticateToken, async (req, res) => {
   // dev 模式也返回新格式
