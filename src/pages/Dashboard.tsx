@@ -621,7 +621,7 @@ export default function Dashboard() {
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
-
+    const [newlyUploadedName, setNewlyUploadedName] = useState<string | null>(null);
     // const folderInputRef = useRef<HTMLInputElement>(null);
     const xhrRef = useRef<XMLHttpRequest | null>(null);
 
@@ -725,8 +725,16 @@ export default function Dashboard() {
                 default: return a.name.localeCompare(b.name) * dir;
             }
         });
+        // 将新上传的文件移到最前面
+        if (newlyUploadedName) {
+            const pinnedItemIndex = items.findIndex(item => item.name === newlyUploadedName);
+            if (pinnedItemIndex > -1) {
+                const [pinnedItem] = items.splice(pinnedItemIndex, 1); // 1. 从数组中移除
+                items.unshift(pinnedItem); // 2. 插入到最前面
+            }
+        }
         return items;
-    }, [data, currentPath, searchTerm, sortConfig]);
+    }, [data, currentPath, searchTerm, sortConfig, newlyUploadedName]);
 
     const totalPages = Math.ceil(processedItems.length / PAGE_SIZE);
     const paginatedItems = processedItems.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -738,12 +746,15 @@ export default function Dashboard() {
     const handleTabChange = (tab: 'all' | 'share') => {
         setActiveTab(tab);
         if (tab === 'all') setCurrentPath([]);
+        setNewlyUploadedName(null);
     };
     const handleNavigate = (newPath: string[]) => {
         setCurrentPath(newPath);
+        setNewlyUploadedName(null);
     };
     const handleFolderClick = (folderName: string) => {
         setCurrentPath([...currentPath, folderName]);
+        setNewlyUploadedName(null);
     };
     const handleSort = (key: SortKey) => {
         let direction: SortDirection = 'asc';
@@ -752,13 +763,16 @@ export default function Dashboard() {
         }
         setSortConfig({ key, direction });
         setCurrentPage(1);
+        setNewlyUploadedName(null);
     };
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
         setCurrentPage(1);
+        setNewlyUploadedName(null);
     };
     const handlePageChange = (newPage: number) => {
         setCurrentPage(newPage);
+        setNewlyUploadedName(null);
     };
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -782,6 +796,13 @@ export default function Dashboard() {
 
     const handleUpload = (isFolder = false) => {
         if ((!selectedFile && !selectedFolderFiles) || uploading) return;
+
+        // 捕获文件名
+        const newName = isFolder
+            ? selectedFolderName
+            : (selectedFile ? selectedFile.name : null);
+        if (!newName) return;
+
         if (xhrRef.current) xhrRef.current.abort();
 
         setUploading(true);
@@ -814,6 +835,12 @@ export default function Dashboard() {
             if (xhr.status === 200) {
                 fetchFiles();
                 fetchUsage()
+                // 关键：设置置顶文件名
+                setNewlyUploadedName(newName);
+                // 强制跳回第一页
+                setCurrentPage(1);
+                // 清除搜索词，确保新文件可见
+                setSearchTerm('');
             } else {
                 setUploadError(`上传失败：${xhr.status}`);
             }
@@ -904,7 +931,7 @@ export default function Dashboard() {
 
         return (
             <>
-                {/* 🔥 修复：上传卡片 (恢复所有 className) */}
+                {/* 修复：上传卡片 (恢复所有 className) */}
                 <div style={{
                     background: 'white', padding: '16px 24px', borderRadius: '12px',
                     marginBottom: '16px', boxShadow: 'var(--shadow-sm)',
@@ -930,7 +957,7 @@ export default function Dashboard() {
                                     style={{display: 'none'}}
                                     onChange={handleFolderChange}
 
-                                    // ✅ 换成这个 ref 回调
+                                    // 换成这个 ref 回调
                                     ref={(inputEl) => {
                                         if (inputEl) {
                                             inputEl.setAttribute('directory', '');
@@ -938,7 +965,7 @@ export default function Dashboard() {
                                         }
                                     }}
                                 />
-                                {/* ✅ 应用新样式 */}
+                                {/* 应用新样式 */}
                                 <label htmlFor="folder-input" className="actionButton btnSecondary">
                                     <i className="fa-solid fa-folder-plus"></i> 文件夹
                                 </label>
@@ -950,7 +977,7 @@ export default function Dashboard() {
                                     <span className="selected-file" style={{ maxWidth: '200px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                                         待上传: <strong>{selectedFile ? selectedFile.name : selectedFolderName}</strong>
                                     </span>
-                                    {/* ✅ 应用新样式 */}
+                                    {/* 应用新样式 */}
                                     <button
                                         className="actionButton btnPrimary"
                                         onClick={() => handleUpload(!!selectedFolderFiles)}
