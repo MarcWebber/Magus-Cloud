@@ -418,7 +418,7 @@ import Preview from '../actions/Preview.tsx';
 import Share from "../actions/Share.tsx";
 import Delete from "../actions/Delete.tsx";
 
-// 定义文件节点 (不变)
+// 1. 定义文件节点 (不变)
 export type FileTreeNode = {
     id: string;
     name: string;
@@ -428,7 +428,7 @@ export type FileTreeNode = {
     mtime?: string;
 };
 
-// 定义并导出排序类型
+// 🔥 2. 定义并导出排序类型
 export type SortKey = 'name' | 'size' | 'mtime';
 type SortDirection = 'asc' | 'desc';
 export interface SortConfig { // 导出接口，方便 Dashboard 使用
@@ -436,7 +436,7 @@ export interface SortConfig { // 导出接口，方便 Dashboard 使用
     direction: SortDirection;
 }
 
-// 升级 Props 定义
+// 🔥 3. 升级 Props 定义
 interface FileTreeProps {
     items: FileTreeNode[];
     onNavigate: (folderName: string) => void;

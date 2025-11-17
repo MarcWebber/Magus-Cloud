@@ -635,6 +635,16 @@ export default function Dashboard() {
             })
             .catch(err => console.error("Fetch files error:", err));
     };
+    const fetchUsage = () => {
+        fetch('/api/usage', { credentials: 'include' })
+            .then(res => res.json())
+            .then(data => {
+                setUserUsageList(data.usage || []);
+                setTotalUsed(data.totalUsed || '0 B');
+                setTotalFree(data.totalFree || '0 B');
+            })
+            .catch(err => console.error("Fetch usage list error:", err));
+    };
     const fetchShareList = () => {
         fetch('/api/share/list', { method: 'GET', credentials: 'include' })
             .then(res => res.json())
@@ -657,6 +667,7 @@ export default function Dashboard() {
     // 3. 生命周期 Effect
     useEffect(() => {
         fetchFiles();
+
         fetch('/api/usage', { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
@@ -665,7 +676,7 @@ export default function Dashboard() {
                 setTotalFree(data.totalFree || '0 B');
             })
             .catch(err => console.error("Fetch usage list error:", err));
-
+        fetchUsage()
         if (folderInputRef.current) {
             folderInputRef.current.setAttribute('directory', '');
             folderInputRef.current.setAttribute('webkitdirectory', '');
@@ -802,6 +813,7 @@ export default function Dashboard() {
             if (xhrRef.current !== xhr) return;
             if (xhr.status === 200) {
                 fetchFiles();
+                fetchUsage()
             } else {
                 setUploadError(`上传失败：${xhr.status}`);
             }
@@ -976,7 +988,10 @@ export default function Dashboard() {
                     <FileTree
                         items={paginatedItems}
                         onNavigate={handleFolderClick}
-                        onDelete={fetchFiles}
+                        onDelete={() => {
+                            fetchFiles(); // 刷新文件列表
+                            fetchUsage(); // 刷新磁盘空间
+                        }}
                         sortConfig={sortConfig}
                         onSort={handleSort}
                     />
