@@ -622,7 +622,7 @@ export default function Dashboard() {
     const [uploadError, setUploadError] = useState('');
     const [uploadProgress, setUploadProgress] = useState(0);
 
-    const folderInputRef = useRef<HTMLInputElement>(null);
+    // const folderInputRef = useRef<HTMLInputElement>(null);
     const xhrRef = useRef<XMLHttpRequest | null>(null);
 
     // 2. 数据获取 (API)
@@ -677,10 +677,10 @@ export default function Dashboard() {
             })
             .catch(err => console.error("Fetch usage list error:", err));
         fetchUsage()
-        if (folderInputRef.current) {
-            folderInputRef.current.setAttribute('directory', '');
-            folderInputRef.current.setAttribute('webkitdirectory', '');
-        }
+        // if (folderInputRef.current) {
+        //     folderInputRef.current.setAttribute('directory', '');
+        //     folderInputRef.current.setAttribute('webkitdirectory', '');
+        // }
     }, []);
 
     useEffect(() => {
@@ -923,7 +923,21 @@ export default function Dashboard() {
                                     <i className="fa-solid fa-cloud-arrow-up"></i> 上传文件
                                 </label>
 
-                                <input ref={folderInputRef} type="file" id="folder-input" style={{display: 'none'}} onChange={handleFolderChange} />
+                                <input
+                                    // ref={folderInputRef} // <-- 删掉旧的 ref
+                                    type="file"
+                                    id="folder-input"
+                                    style={{display: 'none'}}
+                                    onChange={handleFolderChange}
+
+                                    // ✅ 换成这个 ref 回调
+                                    ref={(inputEl) => {
+                                        if (inputEl) {
+                                            inputEl.setAttribute('directory', '');
+                                            inputEl.setAttribute('webkitdirectory', '');
+                                        }
+                                    }}
+                                />
                                 {/* ✅ 应用新样式 */}
                                 <label htmlFor="folder-input" className="actionButton btnSecondary">
                                     <i className="fa-solid fa-folder-plus"></i> 文件夹
