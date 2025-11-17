@@ -532,7 +532,8 @@ import "../styles/Dashboard.css";
 // import type { FileTreeNode } from "../components/file_tree/FileTree.tsx";
 // import FileTree from "../components/file_tree/FileTree.tsx";
 import FileTree, { FileTreeNode, SortKey } from "../components/file_tree/FileTree.tsx";
-import Sidebar from "./Sidebar.tsx";
+// import Sidebar from "./Sidebar.tsx";
+import Sidebar, { TopUser } from "./Sidebar.tsx";
 import Header from "../components/header/Header.tsx";
 import ShareList, { ShareItem } from "../components/actions/ShareList.tsx"; // 引入分享列表
 import { message } from 'antd'; // 引入提示组件
@@ -678,6 +679,10 @@ export default function Dashboard() {
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+
+    // 🔥 2. 总用量 - 新增状态
+    const [userUsageList, setUserUsageList] = useState<{ name: string, size: string }[]>([]);
+
     // 上传状态
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedFolderFiles, setSelectedFolderFiles] = useState<FileList | null>(null);
@@ -733,6 +738,10 @@ export default function Dashboard() {
     // ==========================================
     useEffect(() => {
         fetchFiles(); // 初始化加载文件
+        fetch('/api/usage', { credentials: 'include' })
+            .then(res => res.json())
+            .then(data => setUserUsageList(data.usage || []))
+            .catch(err => console.error("Fetch usage list error:", err));
         if (folderInputRef.current) {
             folderInputRef.current.setAttribute('directory', '');
             folderInputRef.current.setAttribute('webkitdirectory', '');
@@ -757,6 +766,21 @@ export default function Dashboard() {
         const treeData = addIdsAndCalculateSize(files);
         setData(treeData);
     }, [files]);
+
+    // 计算总用量和 Top 5
+    const { totalDiskUsage, top5Users } = useMemo(() => {
+        if (!userUsageList || userUsageList.length === 0) {
+            return { totalDiskUsage: '0 B', top5Users: [] };
+        }
+        const totalBytes = userUsageList.reduce((sum, user) => sum + parseSize(user.size), 0);
+        const formattedTotal = formatBytes(totalBytes);
+        const sortedUsers: TopUser[] = [...userUsageList]
+            .map(user => ({ name: user.name, sizeBytes: parseSize(user.size) }))
+            .sort((a, b) => b.sizeBytes - a.sizeBytes)
+            .slice(0, 5)
+            .map(user => ({ name: user.name, sizeFormatted: formatBytes(user.sizeBytes) }));
+        return { totalDiskUsage: formattedTotal, top5Users: sortedUsers };
+    }, [userUsageList]);
 
     // ==========================================
     // 4. 交互 Handlers
@@ -934,7 +958,7 @@ export default function Dashboard() {
         }
 
         // --- 场景 B: 全部文件 (包含上传框 + 文件列表) ---
-        const currentItems = getCurrentFolderChildren(data, currentPath);
+
         return (
             <>
                 {/* 上传卡片 */}
@@ -1073,6 +1097,8 @@ export default function Dashboard() {
                 usedSize={usage}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
+                totalDiskUsage={totalDiskUsage}
+                top5Users={top5Users}
             />
 
             <main className="main-container">
