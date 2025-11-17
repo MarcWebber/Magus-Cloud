@@ -693,6 +693,7 @@ export default function Dashboard() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const folderInputRef = useRef<HTMLInputElement>(null);
 
+    const xhrRef = useRef<XMLHttpRequest | null>(null);
     // ==========================================
     // 2. 数据获取 (API)
     // ==========================================
@@ -851,6 +852,12 @@ export default function Dashboard() {
 
     const handleUpload = (isFolder = false) => {
         if ((!selectedFile && !selectedFolderFiles) || uploading) return;
+
+        // 如果上一个请求还在，先终止它 (虽然理论上按钮会被禁用，但这是个保险)
+        if (xhrRef.current) {
+            xhrRef.current.abort();
+        }
+
         setUploading(true);
         setUploadError('');
         setUploadProgress(0);
@@ -866,7 +873,10 @@ export default function Dashboard() {
             formData.append('file', selectedFile);
         }
 
-        const xhr = new XMLHttpRequest();
+        // 将 xhr 实例存入 ref
+        xhrRef.current = new XMLHttpRequest();
+        const xhr = xhrRef.current; // 本地引用
+
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
                 setUploadProgress(Math.round((event.loaded / event.total) * 100));
@@ -875,23 +885,43 @@ export default function Dashboard() {
         xhr.onload = () => {
             if (xhr.status === 200) {
                 fetchFiles();
-                setSelectedFile(null);
-                setSelectedFolderFiles(null);
-                setSelectedFolderName('');
-                setUploadProgress(0);
             } else {
                 setUploadError(`上传失败：${xhr.status}`);
             }
+            // 清理
             setUploading(false);
+            setSelectedFile(null);
+            setSelectedFolderFiles(null);
+            setSelectedFolderName('');
+            setUploadProgress(0);
+            xhrRef.current = null; // 请求结束，清空 ref
         };
         xhr.onerror = () => {
-            setUploadError('上传出错');
+            setUploadError('上传出错，请检查网络');
             setUploading(false);
+            xhrRef.current = null; // 请求结束，清空 ref
         };
+
         const url = isFolder ? '/api/upload-folder' : '/api/upload';
         xhr.open('POST', url, true);
         xhr.withCredentials = true;
         xhr.send(formData);
+    };
+
+    // 🔥 3. 新增：取消上传
+    const handleCancelUpload = () => {
+        if (xhrRef.current) {
+            xhrRef.current.abort(); // 终止请求
+            xhrRef.current = null;  // 清理 ref
+
+            // 手动重置状态
+            setUploading(false);
+            setUploadProgress(0);
+            setSelectedFile(null);
+            setSelectedFolderFiles(null);
+            setSelectedFolderName('');
+            message.info('上传已取消');
+        }
     };
 
     // 此块代码将自动在依赖项 (data, currentPath, searchTerm, sortConfig) 变化时
@@ -967,47 +997,67 @@ export default function Dashboard() {
             <>
                 {/* 上传卡片 */}
                 <div style={{
-                    background: 'white',
-                    padding: '16px 24px',
-                    borderRadius: '12px',
-                    marginBottom: '16px',
-                    boxShadow: 'var(--shadow-sm)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '12px'
+                    background: 'white', padding: '16px 24px', borderRadius: '12px',
+                    marginBottom: '16px', boxShadow: 'var(--shadow-sm)',
                 }}>
-                    <div className="upload-section" style={{ margin: 0, display: 'flex', gap: '12px' }}>
-                        <input type="file" id="file-upload" style={{display: 'none'}} onChange={handleFileChange} />
-                        <label htmlFor="file-upload" className="upload-btn">
-                            <i className="fa-solid fa-cloud-arrow-up" style={{marginRight: '8px'}}></i> 上传文件
-                        </label>
-                        <input ref={folderInputRef} type="file" id="folder-upload" style={{display: 'none'}} onChange={handleFolderChange} />
-                        <label htmlFor="folder-upload" className="upload-btn" style={{ background: 'white', border: '1px solid #ddd', color: '#333' }}>
-                            <i className="fa-solid fa-folder-plus" style={{marginRight: '8px'}}></i> 文件夹
-                        </label>
+                    {/* --- 按钮行 --- */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center',
+                        justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px'
+                    }}>
+                        {/* 左侧按钮组 */}
+                        <div className="upload-section" style={{ margin: 0, display: 'flex', gap: '12px' }}>
+                            <input type="file" id="file-input" style={{display: 'none'}} onChange={handleFileChange} />
+                            <label htmlFor="file-input" className="upload-btn">
+                                <i className="fa-solid fa-cloud-arrow-up" style={{marginRight: '8px'}}></i> 上传文件
+                            </label>
+                            <input ref={folderInputRef} type="file" id="folder-input" style={{display: 'none'}} onChange={handleFolderChange} />
+                            <label htmlFor="folder-input" className="upload-btn" style={{ background: 'white', border: '1px solid #ddd', color: '#333' }}>
+                                <i className="fa-solid fa-folder-plus" style={{marginRight: '8px'}}></i> 文件夹
+                            </label>
+                        </div>
+
+                        {/* 右侧：显示“开始上传”按钮 (仅在未上传时) */}
+                        {(selectedFile || selectedFolderName) && !uploading && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span className="selected-file" style={{ maxWidth: '200px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                    待上传: <strong>{selectedFile ? selectedFile.name : selectedFolderName}</strong>
+                                </span>
+                                <button className="upload-btn" onClick={() => handleUpload(!!selectedFolderFiles)}
+                                        style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
+                                >
+                                    开始上传
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    {(selectedFile || selectedFolderName) && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
-                            <span className="selected-file" style={{ maxWidth: '200px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                                待上传: <strong>{selectedFile ? selectedFile.name : selectedFolderName}</strong>
-                            </span>
-                            <button className="upload-btn" onClick={() => handleUpload(!!selectedFolderFiles)}
-                                    disabled={(uploading)}
-                                    style={{ background: 'var(--primary-color)', color: 'white', border: 'none' }}
-                            >
-                                {uploading ? `上传中 ${uploadProgress}%` : '开始上传'}
-                            </button>
-                        </div>
-                    )}
-                    {uploadError && <div className="upload-error" style={{width: '100%'}}>{uploadError}</div>}
+                    {/* --- 进度条行 (仅在上传时显示) --- */}
                     {uploading && (
-                        <div className="upload-progress-bar" style={{width: '100%'}}>
-                            <div className="upload-progress-fill" style={{width: `${uploadProgress}%`}}></div>
+                        <div style={{ marginTop: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                                <span className="selected-file" style={{ flexShrink: 0, maxWidth: '200px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                    <i className="fa-solid fa-spinner fa-spin" style={{marginRight: '8px'}}></i>
+                                    上传中: <strong>{selectedFile ? selectedFile.name : selectedFolderName}</strong>
+                                </span>
+                                {/* 进度条主体 */}
+                                <div className="upload-progress-bar" style={{ flex: 1, width: 'auto' }}>
+                                    <div className="upload-progress-fill" style={{width: `${uploadProgress}%`}}></div>
+                                </div>
+                                <span style={{ flexShrink: 0, fontWeight: 'bold' }}>{uploadProgress}%</span>
+                                {/* 取消按钮 */}
+                                <button
+                                    className="upload-btn"
+                                    onClick={handleCancelUpload}
+                                    style={{ background: '#f5f5f5', color: '#666', border: '1px solid #ddd' }}
+                                >
+                                    取消
+                                </button>
+                            </div>
                         </div>
                     )}
+
+                    {uploadError && <div className="upload-error" style={{width: '100%', marginTop: '10px'}}>{uploadError}</div>}
                 </div>
 
                 {/* 文件列表 */}
