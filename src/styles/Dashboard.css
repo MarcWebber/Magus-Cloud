@@ -289,3 +289,42 @@
     background-color: var(--primary-color, #4caf50);
     transition: width 0.3s ease;
 }
+
+.actionButton {
+    display: inline-flex; /* 关键：让图标和文字居中 */
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* 图标和文字的间距 */
+    box-sizing: border-box;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 8px; /* 圆润的边角 */
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+/* 主按钮 (蓝色) */
+.btnPrimary {
+    background-color: var(--primary-color);
+    color: white;
+    box-shadow: 0 2px 5px rgba(59, 140, 255, 0.2);
+}
+.btnPrimary:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+/*  (白色) */
+.btnSecondary {
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #ddd;
+}
+.btnSecondary:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
