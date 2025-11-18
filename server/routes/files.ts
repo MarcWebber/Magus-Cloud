@@ -110,9 +110,8 @@ router.post('/upload', authenticateToken, (req: Request, res: Response) => {
       return res.status(400).json({ error: '未接收到文件' });
     }
 
-    // 💡 移除 Buffer 转换，直接使用原始文件名
-    // const correctedFileName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
-    const originalFileName = req.file.originalname;
+    // 🔥 必须保留这个修复：将 Multer 错误解析的 latin1 文件名转回 utf-8
+    const correctedFileName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
 
     try {
       const username = req.username || 'default';
@@ -123,14 +122,14 @@ router.post('/upload', authenticateToken, (req: Request, res: Response) => {
       await fs.promises.mkdir(userDir, { recursive: true });
 
       const tempPath = req.file.path;
-      // 💡 使用原始文件名作为目标路径
-      const targetPath = path.resolve(userDir, originalFileName);
+      // 使用修复后的中文名作为目标路径
+      const targetPath = path.resolve(userDir, correctedFileName);
 
       await fs.promises.rename(tempPath, targetPath);
 
-      logger.info(`上传成功: ${originalFileName} -> ${targetPath}`);
-      // 💡 返回正确的原始中文名给前端
-      res.json({ message: '上传成功', file: originalFileName });
+      logger.info(`上传成功: ${correctedFileName} -> ${targetPath}`);
+      // 返回正确的中文名给前端
+      res.json({ message: '上传成功', file: correctedFileName });
 
     } catch (moveError: any) {
       logger.error(`移动文件失败: ${moveError.message}`);
@@ -139,7 +138,6 @@ router.post('/upload', authenticateToken, (req: Request, res: Response) => {
     }
   });
 });
-// 文件夹上传
 // 文件夹上传
 router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), async (req: Request, res: Response) => {
   try {
@@ -156,13 +154,12 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
 
     for (const file of req.files as Express.Multer.File[]) {
 
-      // 💡 移除 Buffer 转换，直接使用原始文件名（它包含了相对路径）
-      // const correctedRelativePath = Buffer.from(file.originalname, 'latin1').toString('utf8');
-      const originalRelativePath = file.originalname;
+      // 🔥 必须保留这个修复：修复中文路径
+      const correctedRelativePath = Buffer.from(file.originalname, 'latin1').toString('utf8');
 
       const tempPath = file.path;
-      // 💡 使用原始的中文路径
-      const targetPath = path.resolve(userDir, originalRelativePath);
+      // 使用修复后的中文路径
+      const targetPath = path.resolve(userDir, correctedRelativePath);
 
       // 确保子目录也存在
       await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
@@ -178,6 +175,7 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
 
   } catch (error: any) {
     console.error('文件夹上传错误:', error);
+    // ... 错误处理 ...
     if (Array.isArray(req.files)) {
       for (const file of req.files) {
         try { await fs.promises.unlink(file.path); } catch(e) {}
