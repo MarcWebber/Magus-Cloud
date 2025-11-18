@@ -794,14 +794,93 @@ export default function Dashboard() {
         }
     };
 
+    // const handleUpload = (isFolder = false) => {
+    //     if ((!selectedFile && !selectedFolderFiles) || uploading) return;
+    //
+    //     // 捕获文件名
+    //     const newName = isFolder
+    //         ? selectedFolderName
+    //         : (selectedFile ? selectedFile.name : null);
+    //     if (!newName) return;
+    //
+    //     if (xhrRef.current) xhrRef.current.abort();
+    //
+    //     setUploading(true);
+    //     setUploadError('');
+    //     setUploadProgress(0);
+    //
+    //     const formData = new FormData();
+    //     if (isFolder && selectedFolderFiles) {
+    //         Array.from(selectedFolderFiles).forEach(file => {
+    //             const newFile = new File([file], file.webkitRelativePath);
+    //             formData.append('folderFiles', newFile);
+    //         });
+    //         formData.append('folderName', selectedFolderName);
+    //     } else if (selectedFile) {
+    //         formData.append('file', selectedFile);
+    //     }
+    //
+    //     xhrRef.current = new XMLHttpRequest();
+    //     const xhr = xhrRef.current;
+    //
+    //     if (xhr.upload) {
+    //         xhr.upload.onprogress = (event) => {
+    //             if (event.lengthComputable) {
+    //                 setUploadProgress(Math.round((event.loaded / event.total) * 100));
+    //             }
+    //         };
+    //     }
+    //     xhr.onload = () => {
+    //         if (xhrRef.current !== xhr) return;
+    //         if (xhr.status === 200) {
+    //             let serverResponse;
+    //             try {
+    //                 // 1. 解析后端返回的数据
+    //                 serverResponse = JSON.parse(xhr.responseText);
+    //             } catch (e) {
+    //                 serverResponse = {};
+    //             }
+    //             fetchFiles();
+    //             fetchUsage()
+    //             // 如果是文件夹上传或者解析失败，回退使用本地记录的 newName
+    //             const finalName = serverResponse.file || newName;
+    //             // 关键：设置置顶文件名
+    //             setNewlyUploadedName(finalName);
+    //             // 强制跳回第一页
+    //             setCurrentPage(1);
+    //             // 清除搜索词，确保新文件可见
+    //             setSearchTerm('');
+    //         } else {
+    //             setUploadError(`上传失败：${xhr.status}`);
+    //         }
+    //         setUploading(false);
+    //         setSelectedFile(null);
+    //         setSelectedFolderFiles(null);
+    //         setSelectedFolderName('');
+    //         setUploadProgress(0);
+    //         xhrRef.current = null;
+    //     };
+    //     xhr.onerror = () => {
+    //         if (xhrRef.current !== xhr) return;
+    //         setUploadError('上传出错，请检查网络');
+    //         setUploading(false);
+    //         xhrRef.current = null;
+    //     };
+    //
+    //     const url = isFolder ? '/api/upload-folder' : '/api/upload';
+    //     xhr.open('POST', url, true);
+    //     xhr.withCredentials = true;
+    //     xhr.send(formData);
+    // };
     const handleUpload = (isFolder = false) => {
         if ((!selectedFile && !selectedFolderFiles) || uploading) return;
 
-        // 捕获文件名
-        const newName = isFolder
+        // 1. 获取上传前的原始名字 (作为保底)
+        const originalName = isFolder
             ? selectedFolderName
             : (selectedFile ? selectedFile.name : null);
-        if (!newName) return;
+
+        if (!originalName) return;
 
         if (xhrRef.current) xhrRef.current.abort();
 
@@ -815,6 +894,7 @@ export default function Dashboard() {
                 const newFile = new File([file], file.webkitRelativePath);
                 formData.append('folderFiles', newFile);
             });
+            // 即使传了这个，后端也会重新计算唯一名字
             formData.append('folderName', selectedFolderName);
         } else if (selectedFile) {
             formData.append('file', selectedFile);
@@ -830,25 +910,36 @@ export default function Dashboard() {
                 }
             };
         }
+
         xhr.onload = () => {
             if (xhrRef.current !== xhr) return;
             if (xhr.status === 200) {
-                let serverResponse;
+                // 🔥 核心修复：解析后端返回的真实文件名
+                let serverResponse: any = {};
                 try {
-                    // 1. 解析后端返回的数据
                     serverResponse = JSON.parse(xhr.responseText);
+                    console.log('上传成功，后端返回:', serverResponse);
                 } catch (e) {
-                    serverResponse = {};
+                    console.error('无法解析上传响应:', e);
                 }
+
+                // 立即刷新列表
                 fetchFiles();
-                fetchUsage()
-                // 如果是文件夹上传或者解析失败，回退使用本地记录的 newName
-                const finalName = serverResponse.file || newName;
-                // 关键：设置置顶文件名
-                setNewlyUploadedName(finalName);
-                // 强制跳回第一页
+                fetchUsage();
+
+                // 🔥 逻辑链：
+                // 1. serverResponse.file -> 单文件上传后的名字 (如 image(1).png)
+                // 2. serverResponse.folderName -> 文件夹上传后的名字 (如 test1(2))
+                // 3. originalName -> 如果后端没返回名字，用上传前的名字保底
+                const finalRealName = serverResponse.file || serverResponse.folderName || originalName;
+
+                console.log(`置顶目标: ${finalRealName}`);
+
+                // 设置这个名字，useMemo 会自动把它排到第一位
+                setNewlyUploadedName(finalRealName);
+
+                // 重置分页和搜索，确保能在第一页看到它
                 setCurrentPage(1);
-                // 清除搜索词，确保新文件可见
                 setSearchTerm('');
             } else {
                 setUploadError(`上传失败：${xhr.status}`);
@@ -860,6 +951,7 @@ export default function Dashboard() {
             setUploadProgress(0);
             xhrRef.current = null;
         };
+
         xhr.onerror = () => {
             if (xhrRef.current !== xhr) return;
             setUploadError('上传出错，请检查网络');
