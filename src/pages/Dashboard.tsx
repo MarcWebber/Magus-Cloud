@@ -833,10 +833,19 @@ export default function Dashboard() {
         xhr.onload = () => {
             if (xhrRef.current !== xhr) return;
             if (xhr.status === 200) {
+                let serverResponse;
+                try {
+                    // 1. 解析后端返回的数据
+                    serverResponse = JSON.parse(xhr.responseText);
+                } catch (e) {
+                    serverResponse = {};
+                }
                 fetchFiles();
                 fetchUsage()
+                // 如果是文件夹上传或者解析失败，回退使用本地记录的 newName
+                const finalName = serverResponse.file || newName;
                 // 关键：设置置顶文件名
-                setNewlyUploadedName(newName);
+                setNewlyUploadedName(finalName);
                 // 强制跳回第一页
                 setCurrentPage(1);
                 // 清除搜索词，确保新文件可见
