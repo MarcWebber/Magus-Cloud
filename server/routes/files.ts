@@ -20,6 +20,10 @@ const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
 import checkDiskSpace from 'check-disk-space';
 
+const fixFileName = (name: string) => {
+  // 将 latin1 编码（Multer 的默认错误编码）转回 utf8（中文正确编码）
+  return Buffer.from(name, 'latin1').toString('utf8');
+};
 // 封装一个递归读取文件夹的函数
 const readDirRecursive = (dirPath) => {
   const items = fs.readdirSync(dirPath);
