@@ -98,45 +98,42 @@ router.get('/files', ...useGuard(authenticateToken, (req, res) => {
 //     res.status(500).json({ message: '文件夹上传失败', error: error.message });
 //   }
 // });
-router.post('/upload', authenticateToken, (req: Request, res: Response) => {
-  upload.single('file')(req, res, async (err) => {
-    logger.info("api/upload被运行了");
+router.post('/upload', authenticateToken, upload.single('file'), async (req: Request, res: Response) => {
+  // 注意：这里去掉 upload.single(...) 的回调包裹，直接写 async
+  // 或者保持你原有的写法，但是逻辑要变
 
-    if (err) {
-      logger.error(`Multer 错误: ${err.message}`);
-      return res.status(500).json({ error: '文件上传失败' });
-    }
-    if (!req.file) {
-      return res.status(400).json({ error: '未接收到文件' });
-    }
+  if (!req.file) {
+    return res.status(400).json({ error: '未接收到文件' });
+  }
 
-    // 🔥 必须保留这个修复：将 Multer 错误解析的 latin1 文件名转回 utf-8
-    const correctedFileName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+  try {
+    const username = req.username || 'default';
+    const userRoot = process.env.NODE_ENV === 'development'
+        ? path.join(__dirname, '../uploads')
+        : `/www/wwwroot/${username}`;
 
-    try {
-      const username = req.username || 'default';
-      const userDir = isDev
-          ? path.join(__dirname, '../uploads')
-          : `/www/wwwroot/${username}`;
+    // 修复文件名
+    const correctedFileName = fixFileName(req.file.originalname);
 
-      await fs.promises.mkdir(userDir, { recursive: true });
+    // 如果是单文件上传，file.originalname 通常不包含路径，只有文件名
+    // 但为了保险，可以使用 path.basename
+    const finalFileName = path.basename(correctedFileName);
+    const targetPath = path.join(userRoot, finalFileName);
 
-      const tempPath = req.file.path;
-      // 使用修复后的中文名作为目标路径
-      const targetPath = path.resolve(userDir, correctedFileName);
+    // 确保目录存在
+    await fs.promises.mkdir(userRoot, { recursive: true });
 
-      await fs.promises.rename(tempPath, targetPath);
+    // 移动文件
+    await fs.promises.rename(req.file.path, targetPath);
 
-      logger.info(`上传成功: ${correctedFileName} -> ${targetPath}`);
-      // 返回正确的中文名给前端
-      res.json({ message: '上传成功', file: correctedFileName });
+    logger.info(`上传成功: ${finalFileName}`);
+    res.json({ message: '上传成功', file: finalFileName });
 
-    } catch (moveError: any) {
-      logger.error(`移动文件失败: ${moveError.message}`);
-      try { await fs.promises.unlink(req.file.path); } catch (e) {}
-      res.status(500).json({ error: '保存文件失败' });
-    }
-  });
+  } catch (moveError: any) {
+    logger.error(`移动文件失败: ${moveError.message}`);
+    try { await fs.promises.unlink(req.file.path); } catch (e) {}
+    res.status(500).json({ error: '保存文件失败' });
+  }
 });
 // 文件夹上传
 router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), async (req: Request, res: Response) => {
@@ -146,39 +143,59 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
     }
 
     const username = req.username || 'default';
-    const userDir = isDev
-        ? path.join(__dirname, '../uploads')
-        : `/www/wwwroot/${username}`;
+    // 根据环境确定用户根目录
+    const userRoot = process.env.NODE_ENV === 'development'
+        ? path.join(__dirname, '../uploads') // 开发环境
+        : `/www/wwwroot/${username}`;      // 生产环境
 
-    await fs.promises.mkdir(userDir, { recursive: true });
+    // 确保用户根目录存在
+    await fs.promises.mkdir(userRoot, { recursive: true });
+
+    const successFiles = [];
 
     for (const file of req.files as Express.Multer.File[]) {
-
-      // 🔥 必须保留这个修复：修复中文路径
-      const correctedRelativePath = Buffer.from(file.originalname, 'latin1').toString('utf8');
-
+      // 1. 获取 Multer 保存的临时文件路径
       const tempPath = file.path;
-      // 使用修复后的中文路径
-      const targetPath = path.resolve(userDir, correctedRelativePath);
 
-      // 确保子目录也存在
-      await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
+      // 2. 修复原始文件名的编码（包含路径，如 "我的文件夹/照片/1.jpg"）
+      const correctedOriginalName = fixFileName(file.originalname);
 
-      // 移动文件
+      // 3. 拼接最终的目标绝对路径
+      const targetPath = path.resolve(userRoot, correctedOriginalName);
+
+      // 安全检查：防止路径遍历攻击 (比如文件名包含 ../)
+      if (!targetPath.startsWith(path.resolve(userRoot))) {
+        console.warn(`跳过非法路径: ${correctedOriginalName}`);
+        continue; // 跳过不安全的文件
+      }
+
+      // 4. 确保目标文件的父级目录存在
+      const targetDir = path.dirname(targetPath);
+      await fs.promises.mkdir(targetDir, { recursive: true });
+
+      // 5. 移动文件 (从 temp_uploads 移动到 用户目录)
+      // 此时使用的是完全修复好编码的路径
       await fs.promises.rename(tempPath, targetPath);
+
+      successFiles.push(correctedOriginalName);
     }
 
     res.status(200).json({
       message: '文件夹上传成功',
-      fileCount: req.files.length,
+      fileCount: successFiles.length,
     });
 
   } catch (error: any) {
     console.error('文件夹上传错误:', error);
-    // ... 错误处理 ...
+    // 清理逻辑：如果有报错，尝试删除还在 temp 里的文件
     if (Array.isArray(req.files)) {
       for (const file of req.files) {
-        try { await fs.promises.unlink(file.path); } catch(e) {}
+        try {
+          // 检查文件是否还在临时目录，如果在则删除
+          if (fs.existsSync(file.path)) {
+            await fs.promises.unlink(file.path);
+          }
+        } catch(e) {}
       }
     }
     res.status(500).json({ message: '文件夹上传失败', error: error.message });
