@@ -251,9 +251,19 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
       successFiles.push(path.relative(userRoot, targetPath));
     }
 
+    // 从 Map 中获取所有新创建的根目录绝对路径
+    const createdRootPaths = Array.from(rootDirMap.values());
+
+    // 提取文件夹名称 (例如 "/www/.../test(2)" -> "test(2)")
+    // 通常一次上传只有一个根目录，取第一个即可
+    const finalRootFolderName = createdRootPaths.length > 0
+        ? path.basename(createdRootPaths[0])
+        : null;
+
     res.status(200).json({
       message: '文件夹上传成功',
       fileCount: successFiles.length,
+      folderName: finalRootFolderName // <--- 将真实的、带序号的文件夹名返回给前端
     });
 
   } catch (error: any) {
