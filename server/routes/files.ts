@@ -188,13 +188,52 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
 
     const successFiles = [];
 
+    // 🔥 核心策略：建立 "原始根目录名" -> "新的唯一根目录绝对路径" 的映射缓存
+    // 比如: "新建文件夹" -> "/root/新建文件夹(1)"
+    const rootDirMap = new Map<string, string>();
+
     for (const file of req.files as Express.Multer.File[]) {
       const tempPath = file.path;
+
+      // 1. 修复乱码，拿到原始完整路径 (例如: "新建文件夹/照片/a.jpg")
       const correctedOriginalName = fixFileName(file.originalname);
 
-      // 1. 初始计算的目标路径
-      // 注意：这里用 let，因为后面可能会被 getUniqueFileName 修改
-      let targetPath = path.resolve(userRoot, correctedOriginalName);
+      // 2. 提取第一级目录名 (根文件夹名)
+      // 注意：Multer 的 originalname 通常用 '/' 分隔，兼容性处理
+      const parts = correctedOriginalName.split('/');
+      const originalRootName = parts[0]; // "新建文件夹"
+
+      // 如果文件名本身没有路径（极少见情况），直接作为文件名处理
+      if (parts.length === 1) {
+        // 这种情况当作普通文件上传逻辑，或者跳过
+        continue;
+      }
+
+      // 3. 确定该文件的 根文件夹 应该存到哪里
+      let finalRootPath = rootDirMap.get(originalRootName);
+
+      if (!finalRootPath) {
+        // 如果这个根文件夹还没处理过，我们来计算一次它的唯一路径
+        const initialRootPath = path.join(userRoot, originalRootName);
+
+        // 🔥 关键：只在这里调用一次 getUniqueFileName
+        // 如果 "新建文件夹" 存在，它会返回 "新建文件夹(1)" 的路径
+        finalRootPath = await getUniqueFileName(initialRootPath);
+
+        // 存入缓存，后续同属于这个文件夹的文件直接使用
+        rootDirMap.set(originalRootName, finalRootPath);
+
+        // 顺便把这个新根目录创建出来
+        await fs.promises.mkdir(finalRootPath, { recursive: true });
+      }
+
+      // 4. 计算文件在 根文件夹 内部的相对路径
+      // 原始: "新建文件夹/子目录/a.jpg" -> 剩余: "子目录/a.jpg"
+      const relativePathInside = parts.slice(1).join(path.sep); // 使用系统分隔符拼接
+
+      // 5. 拼接最终目标路径
+      // 目标: "/root/新建文件夹(1)" + "子目录/a.jpg"
+      const targetPath = path.join(finalRootPath!, relativePathInside);
 
       // 安全检查
       if (!targetPath.startsWith(path.resolve(userRoot))) {
@@ -202,41 +241,28 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
         continue;
       }
 
-      // 2. 确保父目录存在
-      // 注意：即使文件名变了，父目录通常是不变的，所以这一步在重命名前后做都可以
-      // 但为了保险，我们在重命名前先确保目录结构
-      const targetDir = path.dirname(targetPath);
-      await fs.promises.mkdir(targetDir, { recursive: true });
+      // 6. 确保文件的父级目录存在 (例如 "子目录")
+      await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
 
-      // 🔥 3. 【关键修改】检查重名并获取唯一路径
-      // 如果 Folder/photo.jpg 存在，这里会变成 Folder/photo(1).jpg
-      // getUniqueFileName 会自动处理路径，只修改文件名部分
-      targetPath = await getUniqueFileName(targetPath);
-
-      // 4. 移动文件 (移动到新的唯一路径)
+      // 7. 移动文件 (不需要再 check getUniqueFileName，因为根目录是新的，里面必定没文件)
       await fs.promises.rename(tempPath, targetPath);
 
-      // 5. 记录成功的文件 (使用 path.relative 获取相对于用户根目录的路径)
-      // 这样前端收到的反馈是实际保存的文件名，例如 "MyFolder/image(1).png"
+      // 记录相对路径用于返回
       successFiles.push(path.relative(userRoot, targetPath));
     }
 
     res.status(200).json({
       message: '文件夹上传成功',
       fileCount: successFiles.length,
-      // 可以选择把重命名后的文件列表返回给前端，便于调试或提示
-      // files: successFiles
     });
 
   } catch (error: any) {
     console.error('文件夹上传错误:', error);
-    // 清理逻辑保持不变
+    // 清理逻辑
     if (Array.isArray(req.files)) {
       for (const file of req.files) {
         try {
-          if (fs.existsSync(file.path)) {
-            await fs.promises.unlink(file.path);
-          }
+          if (fs.existsSync(file.path)) await fs.promises.unlink(file.path);
         } catch(e) {}
       }
     }
