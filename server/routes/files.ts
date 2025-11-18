@@ -24,6 +24,32 @@ const fixFileName = (name: string) => {
   // 将 latin1 编码（Multer 的默认错误编码）转回 utf8（中文正确编码）
   return Buffer.from(name, 'latin1').toString('utf8');
 };
+
+const getUniqueFileName = async (filePath: string): Promise<string> => {
+  let targetPath = filePath;
+  let counter = 1;
+
+  const dir = path.dirname(filePath);
+  const ext = path.extname(filePath); // 获取后缀，如 .png
+  const name = path.basename(filePath, ext); // 获取主文件名，如 image
+
+  // 循环检查是否存在
+  while (true) {
+    try {
+      // 尝试访问文件
+      await fs.promises.access(targetPath);
+
+      // 如果没报错，说明文件存在，需要改名
+      // 格式： 原路径/文件名(计数).后缀
+      targetPath = path.join(dir, `${name}(${counter})${ext}`);
+      counter++;
+    } catch (e) {
+      // 如果报错，说明文件不存在，可以使用这个名字
+      break;
+    }
+  }
+  return targetPath;
+};
 // 封装一个递归读取文件夹的函数
 const readDirRecursive = (dirPath) => {
   const items = fs.readdirSync(dirPath);
@@ -103,9 +129,6 @@ router.get('/files', ...useGuard(authenticateToken, (req, res) => {
 //   }
 // });
 router.post('/upload', authenticateToken, upload.single('file'), async (req: Request, res: Response) => {
-  // 注意：这里去掉 upload.single(...) 的回调包裹，直接写 async
-  // 或者保持你原有的写法，但是逻辑要变
-
   if (!req.file) {
     return res.status(400).json({ error: '未接收到文件' });
   }
@@ -119,19 +142,29 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req: Req
     // 修复文件名
     const correctedFileName = fixFileName(req.file.originalname);
 
-    // 如果是单文件上传，file.originalname 通常不包含路径，只有文件名
-    // 但为了保险，可以使用 path.basename
     const finalFileName = path.basename(correctedFileName);
-    const targetPath = path.join(userRoot, finalFileName);
+
+    // 1. 定义初始目标路径
+    // 注意：这里用 let，因为后面可能会变
+    let targetPath = path.join(userRoot, finalFileName);
 
     // 确保目录存在
     await fs.promises.mkdir(userRoot, { recursive: true });
 
-    // 移动文件
+    // 🔥 2. 【关键修改】检查重名并获取新路径
+    // 如果 image.png 存在，这里会变成 image(1).png 的完整路径
+    targetPath = await getUniqueFileName(targetPath);
+
+    // 3. 移动文件
     await fs.promises.rename(req.file.path, targetPath);
 
-    logger.info(`上传成功: ${finalFileName}`);
-    res.json({ message: '上传成功', file: finalFileName });
+    // 🔥 4. 获取最终保存的文件名 (用于返回给前端)
+    const savedFileName = path.basename(targetPath);
+
+    logger.info(`上传成功: ${savedFileName}`);
+
+    // 返回新的文件名，这样前端显示的列表就是正确的了
+    res.json({ message: '上传成功', file: savedFileName });
 
   } catch (moveError: any) {
     logger.error(`移动文件失败: ${moveError.message}`);
@@ -147,55 +180,60 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
     }
 
     const username = req.username || 'default';
-    // 根据环境确定用户根目录
     const userRoot = process.env.NODE_ENV === 'development'
-        ? path.join(__dirname, '../uploads') // 开发环境
-        : `/www/wwwroot/${username}`;      // 生产环境
+        ? path.join(__dirname, '../uploads')
+        : `/www/wwwroot/${username}`;
 
-    // 确保用户根目录存在
     await fs.promises.mkdir(userRoot, { recursive: true });
 
     const successFiles = [];
 
     for (const file of req.files as Express.Multer.File[]) {
-      // 1. 获取 Multer 保存的临时文件路径
       const tempPath = file.path;
-
-      // 2. 修复原始文件名的编码（包含路径，如 "我的文件夹/照片/1.jpg"）
       const correctedOriginalName = fixFileName(file.originalname);
 
-      // 3. 拼接最终的目标绝对路径
-      const targetPath = path.resolve(userRoot, correctedOriginalName);
+      // 1. 初始计算的目标路径
+      // 注意：这里用 let，因为后面可能会被 getUniqueFileName 修改
+      let targetPath = path.resolve(userRoot, correctedOriginalName);
 
-      // 安全检查：防止路径遍历攻击 (比如文件名包含 ../)
+      // 安全检查
       if (!targetPath.startsWith(path.resolve(userRoot))) {
         console.warn(`跳过非法路径: ${correctedOriginalName}`);
-        continue; // 跳过不安全的文件
+        continue;
       }
 
-      // 4. 确保目标文件的父级目录存在
+      // 2. 确保父目录存在
+      // 注意：即使文件名变了，父目录通常是不变的，所以这一步在重命名前后做都可以
+      // 但为了保险，我们在重命名前先确保目录结构
       const targetDir = path.dirname(targetPath);
       await fs.promises.mkdir(targetDir, { recursive: true });
 
-      // 5. 移动文件 (从 temp_uploads 移动到 用户目录)
-      // 此时使用的是完全修复好编码的路径
+      // 🔥 3. 【关键修改】检查重名并获取唯一路径
+      // 如果 Folder/photo.jpg 存在，这里会变成 Folder/photo(1).jpg
+      // getUniqueFileName 会自动处理路径，只修改文件名部分
+      targetPath = await getUniqueFileName(targetPath);
+
+      // 4. 移动文件 (移动到新的唯一路径)
       await fs.promises.rename(tempPath, targetPath);
 
-      successFiles.push(correctedOriginalName);
+      // 5. 记录成功的文件 (使用 path.relative 获取相对于用户根目录的路径)
+      // 这样前端收到的反馈是实际保存的文件名，例如 "MyFolder/image(1).png"
+      successFiles.push(path.relative(userRoot, targetPath));
     }
 
     res.status(200).json({
       message: '文件夹上传成功',
       fileCount: successFiles.length,
+      // 可以选择把重命名后的文件列表返回给前端，便于调试或提示
+      // files: successFiles
     });
 
   } catch (error: any) {
     console.error('文件夹上传错误:', error);
-    // 清理逻辑：如果有报错，尝试删除还在 temp 里的文件
+    // 清理逻辑保持不变
     if (Array.isArray(req.files)) {
       for (const file of req.files) {
         try {
-          // 检查文件是否还在临时目录，如果在则删除
           if (fs.existsSync(file.path)) {
             await fs.promises.unlink(file.path);
           }
