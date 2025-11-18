@@ -38,6 +38,8 @@ const readDirRecursive = (dirPath) => {
   });
 };
 
+
+
 router.get('/files', ...useGuard(authenticateToken, (req, res) => {
   // TODO 修改路径
   if (isDev) {
@@ -97,7 +99,7 @@ router.get('/files', ...useGuard(authenticateToken, (req, res) => {
 //   }
 // });
 router.post('/upload', authenticateToken, (req: Request, res: Response) => {
-  upload.single('file')(req, res, async (err) => { // 1. 添加 async
+  upload.single('file')(req, res, async (err) => {
     logger.info("api/upload被运行了");
 
     if (err) {
@@ -108,65 +110,60 @@ router.post('/upload', authenticateToken, (req: Request, res: Response) => {
       return res.status(400).json({ error: '未接收到文件' });
     }
 
-    //  移动文件
+    // 🔥 核心修复：将 Multer 错误解析的 latin1 文件名转回 utf-8
+    const correctedFileName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+
     try {
       const username = req.username || 'default';
       const userDir = isDev
           ? path.join(__dirname, '../uploads')
           : `/www/wwwroot/${username}`;
 
-      // 确保用户目录存在
       await fs.promises.mkdir(userDir, { recursive: true });
 
-      // req.file.path 是 /tmp 里的临时路径
-      // targetPath 是 /www/wwwroot/ 里的目标路径
       const tempPath = req.file.path;
-      const targetPath = path.resolve(userDir, req.file.originalname);
+      // 使用修复后的中文名作为目标路径
+      const targetPath = path.resolve(userDir, correctedFileName);
 
-      // 移动文件
       await fs.promises.rename(tempPath, targetPath);
 
-      logger.info(`上传成功: ${req.file.originalname} -> ${targetPath}`);
-      res.json({ message: '上传成功', file: req.file.originalname }); // 返回原始文件名
+      logger.info(`上传成功: ${correctedFileName} -> ${targetPath}`);
+      // 返回正确的中文名给前端（用于置顶）
+      res.json({ message: '上传成功', file: correctedFileName });
 
     } catch (moveError: any) {
       logger.error(`移动文件失败: ${moveError.message}`);
-      // 尝试清理临时文件
       try { await fs.promises.unlink(req.file.path); } catch (e) {}
       res.status(500).json({ error: '保存文件失败' });
     }
   });
 });
-
 // 文件夹上传
-router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), async (req: Request, res: Response) => { // 1. 添加 async
+// 文件夹上传
+router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), async (req: Request, res: Response) => {
   try {
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
       return res.status(400).json({ message: '未选择文件夹或文件夹为空' });
     }
 
-    const { folderName } = req.body;
-    if (!folderName) {
-      return res.status(400).json({ message: '缺少文件夹名称' });
-    }
+    // 🔥 注意：我们不再使用前端传来的 folderName，因为路径在文件里
+    // const { folderName } = req.body;
 
-    // 核心修复：循环移动所有文件
     const username = req.username || 'default';
     const userDir = isDev
         ? path.join(__dirname, '../uploads')
         : `/www/wwwroot/${username}`;
 
-    // 目标文件夹路径 (例如 /www/wwwroot/username/MyFolder)
-    const targetFolderDir = path.resolve(userDir, folderName);
-    await fs.promises.mkdir(targetFolderDir, { recursive: true });
+    await fs.promises.mkdir(userDir, { recursive: true });
 
     for (const file of req.files as Express.Multer.File[]) {
-      // file.webkitRelativePath 包含子目录结构 (例如 MyFolder/sub/file.txt)
-      // 我们需要去掉最顶层的 MyFolder/
-      const relativePath = file.originalname;
+
+      // 🔥 核心修复：修复中文路径
+      const correctedRelativePath = Buffer.from(file.originalname, 'latin1').toString('utf8');
 
       const tempPath = file.path;
-      const targetPath = path.resolve(userDir, relativePath); // 直接用 userDir + 相对路径
+      // 使用修复后的中文路径
+      const targetPath = path.resolve(userDir, correctedRelativePath);
 
       // 确保子目录也存在
       await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
@@ -178,12 +175,11 @@ router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), as
     res.status(200).json({
       message: '文件夹上传成功',
       fileCount: req.files.length,
-      folderName: folderName
+      // folderName: req.body.folderName //
     });
 
   } catch (error: any) {
     console.error('文件夹上传错误:', error);
-    // 尝试清理所有临时文件
     if (Array.isArray(req.files)) {
       for (const file of req.files) {
         try { await fs.promises.unlink(file.path); } catch(e) {}
