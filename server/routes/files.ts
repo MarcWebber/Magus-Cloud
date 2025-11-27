@@ -19,6 +19,14 @@ import XLSX from 'xlsx';
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
 import checkDiskSpace from 'check-disk-space';
+import {extOf, mimeByExt, safeResolve} from "../utils/previewUtils";
+import {
+  handleDocRtfPreview,
+  handleDocxPreview, handleExcelPreview,
+  handleImagePreview, handlePdfPreview, handlePptPreview,
+  handleTextPreview,
+  handleWordPreview
+} from "./previewService";
 
 const fixFileName = (name: string) => {
   // 将 latin1 编码（Multer 的默认错误编码）转回 utf8（中文正确编码）
@@ -727,201 +735,360 @@ router.get('/usage', authenticateToken, async (req, res) => {
   }
 });
 
-// ===== MIME / 扩展名 =====
-const mimeByExt: Record<string, string> = {
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp',
-  txt: 'text/plain', md: 'text/markdown', html: 'text/plain', css: 'text/css', js: 'text/javascript',
-  ts: 'text/typescript', json: 'application/json', xml: 'text/xml', csv: 'text/csv',
-  py: 'text/plain', java: 'text/plain', cpp: 'text/plain', c: 'text/plain',
-  doc: 'application/msword',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  rtf: 'application/rtf',
-  xls: 'application/vnd.ms-excel',
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  ppt: 'application/vnd.ms-powerpoint',
-  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  pdf: 'application/pdf',
-};
-const extOf = (name: string) => name.split('.').pop()?.toLowerCase() || '';
+// // ===== MIME / 扩展名 =====
+// const mimeByExt: Record<string, string> = {
+//   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp',
+//   txt: 'text/plain', md: 'text/markdown', html: 'text/plain', css: 'text/css', js: 'text/javascript',
+//   ts: 'text/typescript', json: 'application/json', xml: 'text/xml', csv: 'text/csv',
+//   py: 'text/plain', java: 'text/plain', cpp: 'text/plain', c: 'text/plain',
+//   doc: 'application/msword',
+//   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+//   rtf: 'application/rtf',
+//   xls: 'application/vnd.ms-excel',
+//   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+//   ppt: 'application/vnd.ms-powerpoint',
+//   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+//   pdf: 'application/pdf',
+// };
+// const extOf = (name: string) => name.split('.').pop()?.toLowerCase() || '';
+//
+// // ===== 安全路径 & 缓存 =====
+// const CACHE_DIR = path.resolve(process.cwd(), 'cache-office');
+// const LO_PROFILE_DIR = path.join(CACHE_DIR, 'lo-profile'); // 独立的 LibreOffice 用户目录
+// async function ensureCacheDir() {
+//   if (!fs.existsSync(CACHE_DIR)) await fsp.mkdir(CACHE_DIR, { recursive: true });
+//   if (!fs.existsSync(LO_PROFILE_DIR)) await fsp.mkdir(LO_PROFILE_DIR, { recursive: true });
+// }
+// function safeResolve(baseDir: string, subPath: string) {
+//   const realBase = path.resolve(baseDir);
+//   const target = path.resolve(baseDir, subPath);
+//   if (!target.startsWith(realBase + path.sep)) throw new Error('PathTraversal');
+//   return target;
+// }
+// function hashKey(filePath: string, stat: fs.Stats, target: 'html' | 'pdf') {
+//   const h = crypto.createHash('sha256');
+//   h.update(filePath);
+//   h.update(String(stat.size));
+//   h.update(String(stat.mtimeMs));
+//   h.update(target);
+//   return h.digest('hex').slice(0, 16);
+// }
+// async function detectFileByExt(dir: string, ext: string) {
+//   const files = await fsp.readdir(dir);
+//   const found = files.find(f => f.toLowerCase().endsWith('.' + ext));
+//   return found ? path.join(dir, found) : null;
+// }
+//
+// // ===== 工具：验证 PDF 有效性 =====
+// async function isValidPdf(p: string) {
+//   try {
+//     const stat = await fsp.stat(p);
+//     if (!stat.size || stat.size < 128) return false;
+//     const fd = await fsp.open(p, 'r');
+//     const buf = Buffer.alloc(5);
+//     await fd.read(buf, 0, 5, 0);
+//     await fd.close();
+//     return buf.toString('utf8') === '%PDF-';
+//   } catch {
+//     return false;
+//   }
+// }
+//
+// // ===== LibreOffice 调用 =====
+// function runSoffice(srcPath: string, outDir: string, fmt: 'html' | 'pdf') {
+//   const args = [
+//     `-env:UserInstallation=file://${LO_PROFILE_DIR.replace(/ /g, '%20')}`, // 独立配置，避免权限/锁问题
+//     '--headless', '--nologo', '--nofirststartwizard',
+//     '--convert-to', fmt,
+//     '--outdir', outDir,
+//     srcPath,
+//   ];
+//   return new Promise<void>((resolve, reject) => {
+//     const p = spawn('soffice', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+//     let err = '';
+//     p.on('error', (e) => reject(e)); // 关键：捕获 ENOENT 等
+//     p.stderr.on('data', d => { err += d.toString(); });
+//     p.on('close', (code) => {
+//       if (code === 0) resolve();
+//       else reject(new Error(`soffice failed(${code}): ${err.trim()}`));
+//     });
+//   });
+// }
+//
+// async function convertWithSoffice(srcPath: string, target: 'html' | 'pdf') {
+//   await ensureCacheDir();
+//   const stat = await fsp.stat(srcPath);
+//   const key = hashKey(srcPath, stat, target);
+//   const outDir = path.join(CACHE_DIR, key);
+//   const done = path.join(outDir, `.done.${target}`);
+//
+//   if (fs.existsSync(done)) {
+//     const mainCached = target === 'html'
+//       ? await detectFileByExt(outDir, 'html')
+//       : await detectFileByExt(outDir, 'pdf');
+//     if (mainCached) {
+//       if (target === 'pdf') {
+//         if (await isValidPdf(mainCached)) return mainCached;
+//       } else {
+//         if ((await fsp.stat(mainCached)).size > 0) return mainCached;
+//       }
+//     }
+//     // 缓存失效，继续重转
+//   }
+//
+//   await fsp.rm(outDir, { recursive: true, force: true });
+//   await fsp.mkdir(outDir, { recursive: true });
+//
+//   await runSoffice(srcPath, outDir, target);
+//
+//   const main = target === 'html'
+//     ? await detectFileByExt(outDir, 'html')
+//     : await detectFileByExt(outDir, 'pdf');
+//
+//   if (!main) throw new Error('Soffice output missing');
+//   if (target === 'pdf') {
+//     if (!(await isValidPdf(main))) throw new Error('Invalid PDF produced by soffice');
+//   } else {
+//     const size = (await fsp.stat(main)).size;
+//     if (size === 0) throw new Error('Empty HTML produced by soffice');
+//   }
+//
+//   await fsp.writeFile(done, Date.now().toString());
+//   return main;
+// }
+//
+// // ===== HTML 包裹（含“去打印页盒子”覆盖）=====
+// function wrapHtml(inner: string, wide = false) {
+//   return `<!DOCTYPE html>
+// <html>
+// <head>
+// <meta charset="utf-8" />
+// <meta name="viewport" content="width=device-width,initial-scale=1" />
+// <style>
+//   html, body { height: 100%; }
+//   body { margin: 0; padding: 16px; background: #fff; color: #222; box-sizing: border-box; }
+//   *, *::before, *::after { box-sizing: inherit; }
+//   .doc-container { max-width: ${wide ? '1400px' : '1000px'}; margin: 0 auto; }
+//   img { max-width: 100%; height: auto; }
+//   table { border-collapse: collapse; max-width: 100%; table-layout: auto; }
+//   table, td, th { border: 1px solid #ddd; }
+//   td, th { padding: 6px 8px; }
+//   .WordSection1, .Section0, .page, .sd-page {
+//     width: 100% !important; max-width: 100% !important;
+//     height: auto !important; max-height: none !important;
+//     overflow: visible !important;
+//   }
+//   [style*="overflow:auto"], [style*="overflow: scroll"] { overflow: visible !important; }
+//   [style*="height:"], [style*="max-height:"] { height: auto !important; max-height: none !important; }
+//   [style*="width:595"], [style*="width:596"], [style*="width:612"], [style*="width:794"], [style*="width:842"] {
+//     width: 100% !important; max-width: 100% !important;
+//   }
+//
+// </style>
+// </head>
+// <body>
+//   <div class="doc-container">${inner}</div>
+//   <script>
+//   (function() {
+//     function unboxPages() {
+//       try {
+//         var nodes = Array.prototype.slice.call(document.querySelectorAll('div, section, main, article, body'));
+//         nodes.forEach(function(el) {
+//           var cs = getComputedStyle(el);
+//           var hasOverflow = (cs.overflowY && cs.overflowY !== 'visible') || (cs.overflowX && cs.overflowX !== 'visible');
+//           var hasScroll = el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
+//           var fixedWidthPx = /px$/.test(cs.width);
+//           var fixedHeightPx = /px$/.test(cs.height);
+//           if (hasOverflow || hasScroll || fixedWidthPx || fixedHeightPx) {
+//             el.style.width = '100%';
+//             el.style.maxWidth = '100%';
+//             el.style.height = 'auto';
+//             el.style.maxHeight = 'none';
+//             el.style.overflow = 'visible';
+//           }
+//           if (cs.transform && cs.transform !== 'none') el.style.transform = 'none';
+//         });
+//         document.querySelectorAll('table').forEach(function(t) {
+//           t.style.width = '100%'; t.style.maxWidth = '100%'; t.style.tableLayout = 'auto';
+//         });
+//         document.querySelectorAll('img').forEach(function(img) {
+//           img.style.maxWidth = '100%'; img.style.height = 'auto';
+//         });
+//       } catch (e) {}
+//     }
+//     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', unboxPages);
+//     else unboxPages();
+//   })();
+//   </script>
+// </body>
+// </html>`;
+// }
+//
+// // ===== 路由实现 =====
+// router.get('/preview', authenticateToken, async (req: Request, res: Response) => {
+//   try {
+//     const nameParam = req.query.name;
+//     const typeParam = req.query.type;
+//     const mode = String(req.query.mode || ''); // xlsx 可选 mode=json
+//
+//     if (typeof nameParam !== 'string' || typeof typeParam !== 'string') {
+//       return res.status(400).json({ error: '参数格式错误，需要字符串类型' });
+//     }
+//     if (!nameParam || !typeParam) {
+//       return res.status(400).json({ error: '缺少参数：name或type' });
+//     }
+//
+//     const userDir = isDev
+//       ? path.join(__dirname, '../uploads')
+//       : `/www/wwwroot/${(req as any).username || 'chensheng'}`;
+//
+//     const filePath = safeResolve(userDir, decodeURIComponent(nameParam));
+//     if (!fs.existsSync(filePath)) {
+//       logger?.error?.(`预览文件不存在：${filePath}`);
+//       return res.status(404).json({ error: '文件不存在' });
+//     }
+//
+//     const stats = fs.statSync(filePath);
+//     if (typeParam !== 'file' || !stats.isFile()) {
+//       return res.status(400).json({ error: '仅支持文件预览' });
+//     }
+//
+//     const ext = extOf(nameParam);
+//     const mime = mimeByExt[ext] || 'application/octet-stream';
+//
+//     // ===== Word 系列：mode=pdf 优先；若 PDF 无效则回 HTML =====
+//     if (mode === 'pdf' && (ext === 'doc' || ext === 'docx' || ext === 'rtf')) {
+//       try {
+//         const pdfPath = await convertWithSoffice(filePath, 'pdf');
+//         if (!(await isValidPdf(pdfPath))) throw new Error('Invalid PDF');
+//         res.setHeader('Content-Type', 'application/pdf');
+//         return fs.createReadStream(pdfPath).pipe(res);
+//       } catch (e: any) {
+//         logger?.error?.(`Word→PDF 失败：${e?.message || e}`);
+//         // 转而返回 HTML（mammoth 优先）
+//         try {
+//           if (ext === 'docx') {
+//             const { value: html } = await mammoth.convertToHtml({ path: filePath });
+//             return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
+//           }
+//           const htmlPath = await convertWithSoffice(filePath, 'html');
+//           const html = await fsp.readFile(htmlPath, 'utf8');
+//           return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
+//         } catch (e2: any) {
+//           logger?.error?.(`Word HTML 回退失败：${e2?.message || e2}`);
+//           return res.status(500).json({ error: 'Word 转换失败' });
+//         }
+//       }
+//     }
+//
+//     // ===== 文本 / JSON =====
+//     if (mime.startsWith('text/') || mime === 'application/json') {
+//       const content = await fsp.readFile(filePath, 'utf8');
+//       return res.json({ type: mime, content, filename: nameParam });
+//     }
+//
+//     // ===== 图片 =====
+//     if (mime.startsWith('image/')) {
+//       try {
+//         const processed = await sharp(filePath)
+//           .resize({ width: 1200, withoutEnlargement: true, fit: 'inside', fastShrinkOnLoad: true })
+//           .toBuffer();
+//         return res.json({
+//           type: mime,
+//           content: processed.toString('base64'),
+//           filename: nameParam,
+//           encoding: 'base64'
+//         });
+//       } catch (e: any) {
+//         logger?.error?.('图片处理失败: ' + e?.message);
+//         return res.status(500).json({ error: '图片处理失败' });
+//       }
+//     }
+//
+//     // ===== DOCX：mammoth → HTML；失败回落 soffice → HTML =====
+//     if (ext === 'docx') {
+//       try {
+//         const { value: html } = await mammoth.convertToHtml({ path: filePath });
+//         return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
+//       } catch {
+//         const htmlPath = await convertWithSoffice(filePath, 'html');
+//         const html = await fsp.readFile(htmlPath, 'utf8');
+//         return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
+//       }
+//     }
+//
+//     // ===== DOC / RTF：soffice → HTML；失败回落 PDF =====
+//     if (ext === 'doc' || ext === 'rtf') {
+//       try {
+//         const htmlPath = await convertWithSoffice(filePath, 'html');
+//         const html = await fsp.readFile(htmlPath, 'utf8');
+//         return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
+//       } catch {
+//         const pdfPath = await convertWithSoffice(filePath, 'pdf');
+//         if (!(await isValidPdf(pdfPath))) {
+//           return res.status(500).json({ error: '文档转换失败' });
+//         }
+//         res.setHeader('Content-Type', 'application/pdf');
+//         return fs.createReadStream(pdfPath).pipe(res);
+//       }
+//     }
+//
+//     // ===== XLS / XLSX =====
+//     if (ext === 'xls' || ext === 'xlsx') {
+//       // 强制对 .xls 使用 json 解析（更稳定）
+//       const wb = XLSX.readFile(filePath, { cellDates: true });
+//       const sheets = wb.SheetNames.map((name) => ({
+//         name,
+//         rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' })
+//       }));
+//       return res.json({ type: 'application/vnd.custom.sheet+json', sheets, filename: nameParam });
+//       // if (mode === 'json') {
+//       //   const wb = XLSX.readFile(filePath, { cellDates: true });
+//       //   const sheets = wb.SheetNames.map((name) => ({
+//       //     name,
+//       //     rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' })
+//       //   }));
+//       //   return res.json({ type: 'application/vnd.custom.sheet+json', sheets, filename: nameParam });
+//       // } else {
+//       //   const htmlPath = await convertWithSoffice(filePath, 'html');
+//       //   const html = await fsp.readFile(htmlPath, 'utf8');
+//       //   return res.json({ type: 'text/html', content: wrapHtml(html, true), filename: nameParam });
+//       // }
+//     }
+//
+//     // ===== PPT / PPTX → PDF 流 =====
+//     if (ext === 'ppt' || ext === 'pptx') {
+//       const pdfPath = await convertWithSoffice(filePath, 'pdf');
+//       if (!(await isValidPdf(pdfPath))) {
+//         return res.status(500).json({ error: 'PPT 转 PDF 失败' });
+//       }
+//       res.setHeader('Content-Type', 'application/pdf');
+//       return fs.createReadStream(pdfPath).pipe(res);
+//     }
+//
+//     // ===== PDF：直流 =====
+//     if (ext === 'pdf') {
+//       res.setHeader('Content-Type', 'application/pdf');
+//       return fs.createReadStream(filePath).pipe(res);
+//     }
+//
+//     return res.status(415).json({ error: '不支持的文件类型' });
+//
+//   } catch (error: any) {
+//     if (error?.message === 'PathTraversal') {
+//       return res.status(403).json({ error: '操作不允许' });
+//     }
+//     (logger || console).error(`预览处理失败：${error?.message || error}`);
+//     return res.status(500).json({ error: '服务器处理预览失败' });
+//   }
+// });
 
-// ===== 安全路径 & 缓存 =====
-const CACHE_DIR = path.resolve(process.cwd(), 'cache-office');
-const LO_PROFILE_DIR = path.join(CACHE_DIR, 'lo-profile'); // 独立的 LibreOffice 用户目录
-async function ensureCacheDir() {
-  if (!fs.existsSync(CACHE_DIR)) await fsp.mkdir(CACHE_DIR, { recursive: true });
-  if (!fs.existsSync(LO_PROFILE_DIR)) await fsp.mkdir(LO_PROFILE_DIR, { recursive: true });
-}
-function safeResolve(baseDir: string, subPath: string) {
-  const realBase = path.resolve(baseDir);
-  const target = path.resolve(baseDir, subPath);
-  if (!target.startsWith(realBase + path.sep)) throw new Error('PathTraversal');
-  return target;
-}
-function hashKey(filePath: string, stat: fs.Stats, target: 'html' | 'pdf') {
-  const h = crypto.createHash('sha256');
-  h.update(filePath);
-  h.update(String(stat.size));
-  h.update(String(stat.mtimeMs));
-  h.update(target);
-  return h.digest('hex').slice(0, 16);
-}
-async function detectFileByExt(dir: string, ext: string) {
-  const files = await fsp.readdir(dir);
-  const found = files.find(f => f.toLowerCase().endsWith('.' + ext));
-  return found ? path.join(dir, found) : null;
-}
-
-// ===== 工具：验证 PDF 有效性 =====
-async function isValidPdf(p: string) {
-  try {
-    const stat = await fsp.stat(p);
-    if (!stat.size || stat.size < 128) return false;
-    const fd = await fsp.open(p, 'r');
-    const buf = Buffer.alloc(5);
-    await fd.read(buf, 0, 5, 0);
-    await fd.close();
-    return buf.toString('utf8') === '%PDF-';
-  } catch {
-    return false;
-  }
-}
-
-// ===== LibreOffice 调用 =====
-function runSoffice(srcPath: string, outDir: string, fmt: 'html' | 'pdf') {
-  const args = [
-    `-env:UserInstallation=file://${LO_PROFILE_DIR.replace(/ /g, '%20')}`, // 独立配置，避免权限/锁问题
-    '--headless', '--nologo', '--nofirststartwizard',
-    '--convert-to', fmt,
-    '--outdir', outDir,
-    srcPath,
-  ];
-  return new Promise<void>((resolve, reject) => {
-    const p = spawn('soffice', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let err = '';
-    p.on('error', (e) => reject(e)); // 关键：捕获 ENOENT 等
-    p.stderr.on('data', d => { err += d.toString(); });
-    p.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`soffice failed(${code}): ${err.trim()}`));
-    });
-  });
-}
-
-async function convertWithSoffice(srcPath: string, target: 'html' | 'pdf') {
-  await ensureCacheDir();
-  const stat = await fsp.stat(srcPath);
-  const key = hashKey(srcPath, stat, target);
-  const outDir = path.join(CACHE_DIR, key);
-  const done = path.join(outDir, `.done.${target}`);
-
-  if (fs.existsSync(done)) {
-    const mainCached = target === 'html'
-      ? await detectFileByExt(outDir, 'html')
-      : await detectFileByExt(outDir, 'pdf');
-    if (mainCached) {
-      if (target === 'pdf') {
-        if (await isValidPdf(mainCached)) return mainCached;
-      } else {
-        if ((await fsp.stat(mainCached)).size > 0) return mainCached;
-      }
-    }
-    // 缓存失效，继续重转
-  }
-
-  await fsp.rm(outDir, { recursive: true, force: true });
-  await fsp.mkdir(outDir, { recursive: true });
-
-  await runSoffice(srcPath, outDir, target);
-
-  const main = target === 'html'
-    ? await detectFileByExt(outDir, 'html')
-    : await detectFileByExt(outDir, 'pdf');
-
-  if (!main) throw new Error('Soffice output missing');
-  if (target === 'pdf') {
-    if (!(await isValidPdf(main))) throw new Error('Invalid PDF produced by soffice');
-  } else {
-    const size = (await fsp.stat(main)).size;
-    if (size === 0) throw new Error('Empty HTML produced by soffice');
-  }
-
-  await fsp.writeFile(done, Date.now().toString());
-  return main;
-}
-
-// ===== HTML 包裹（含“去打印页盒子”覆盖）=====
-function wrapHtml(inner: string, wide = false) {
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<style>
-  html, body { height: 100%; }
-  body { margin: 0; padding: 16px; background: #fff; color: #222; box-sizing: border-box; }
-  *, *::before, *::after { box-sizing: inherit; }
-  .doc-container { max-width: ${wide ? '1400px' : '1000px'}; margin: 0 auto; }
-  img { max-width: 100%; height: auto; }
-  table { border-collapse: collapse; max-width: 100%; table-layout: auto; }
-  table, td, th { border: 1px solid #ddd; }
-  td, th { padding: 6px 8px; }
-  .WordSection1, .Section0, .page, .sd-page {
-    width: 100% !important; max-width: 100% !important;
-    height: auto !important; max-height: none !important;
-    overflow: visible !important;
-  }
-  [style*="overflow:auto"], [style*="overflow: scroll"] { overflow: visible !important; }
-  [style*="height:"], [style*="max-height:"] { height: auto !important; max-height: none !important; }
-  [style*="width:595"], [style*="width:596"], [style*="width:612"], [style*="width:794"], [style*="width:842"] {
-    width: 100% !important; max-width: 100% !important;
-  }
-
-</style>
-</head>
-<body>
-  <div class="doc-container">${inner}</div>
-  <script>
-  (function() {
-    function unboxPages() {
-      try {
-        var nodes = Array.prototype.slice.call(document.querySelectorAll('div, section, main, article, body'));
-        nodes.forEach(function(el) {
-          var cs = getComputedStyle(el);
-          var hasOverflow = (cs.overflowY && cs.overflowY !== 'visible') || (cs.overflowX && cs.overflowX !== 'visible');
-          var hasScroll = el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
-          var fixedWidthPx = /px$/.test(cs.width);
-          var fixedHeightPx = /px$/.test(cs.height);
-          if (hasOverflow || hasScroll || fixedWidthPx || fixedHeightPx) {
-            el.style.width = '100%';
-            el.style.maxWidth = '100%';
-            el.style.height = 'auto';
-            el.style.maxHeight = 'none';
-            el.style.overflow = 'visible';
-          }
-          if (cs.transform && cs.transform !== 'none') el.style.transform = 'none';
-        });
-        document.querySelectorAll('table').forEach(function(t) {
-          t.style.width = '100%'; t.style.maxWidth = '100%'; t.style.tableLayout = 'auto';
-        });
-        document.querySelectorAll('img').forEach(function(img) {
-          img.style.maxWidth = '100%'; img.style.height = 'auto';
-        });
-      } catch (e) {}
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', unboxPages);
-    else unboxPages();
-  })();
-  </script>
-</body>
-</html>`;
-}
-
-// ===== 路由实现 =====
 router.get('/preview', authenticateToken, async (req: Request, res: Response) => {
   try {
+    // ===== 1. 参数校验（原有逻辑保留）=====
     const nameParam = req.query.name;
     const typeParam = req.query.type;
-    const mode = String(req.query.mode || ''); // xlsx 可选 mode=json
+    const mode = String(req.query.mode || '');
 
     if (typeof nameParam !== 'string' || typeof typeParam !== 'string') {
       return res.status(400).json({ error: '参数格式错误，需要字符串类型' });
@@ -930,9 +1097,10 @@ router.get('/preview', authenticateToken, async (req: Request, res: Response) =>
       return res.status(400).json({ error: '缺少参数：name或type' });
     }
 
+    // ===== 2. 文件路径解析（原有逻辑保留）=====
     const userDir = isDev
-      ? path.join(__dirname, '../uploads')
-      : `/www/wwwroot/${(req as any).username || 'chensheng'}`;
+        ? path.join(__dirname, '../uploads')
+        : `/www/wwwroot/${(req as any).username || 'chensheng'}`;
 
     const filePath = safeResolve(userDir, decodeURIComponent(nameParam));
     if (!fs.existsSync(filePath)) {
@@ -945,123 +1113,49 @@ router.get('/preview', authenticateToken, async (req: Request, res: Response) =>
       return res.status(400).json({ error: '仅支持文件预览' });
     }
 
+    // ===== 3. 获取文件类型信息 =====
     const ext = extOf(nameParam);
     const mime = mimeByExt[ext] || 'application/octet-stream';
 
-    // ===== Word 系列：mode=pdf 优先；若 PDF 无效则回 HTML =====
+    // ===== 4. 分发到不同的处理函数 =====
+    // Word系列（mode=pdf）
     if (mode === 'pdf' && (ext === 'doc' || ext === 'docx' || ext === 'rtf')) {
-      try {
-        const pdfPath = await convertWithSoffice(filePath, 'pdf');
-        if (!(await isValidPdf(pdfPath))) throw new Error('Invalid PDF');
-        res.setHeader('Content-Type', 'application/pdf');
-        return fs.createReadStream(pdfPath).pipe(res);
-      } catch (e: any) {
-        logger?.error?.(`Word→PDF 失败：${e?.message || e}`);
-        // 转而返回 HTML（mammoth 优先）
-        try {
-          if (ext === 'docx') {
-            const { value: html } = await mammoth.convertToHtml({ path: filePath });
-            return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-          }
-          const htmlPath = await convertWithSoffice(filePath, 'html');
-          const html = await fsp.readFile(htmlPath, 'utf8');
-          return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-        } catch (e2: any) {
-          logger?.error?.(`Word HTML 回退失败：${e2?.message || e2}`);
-          return res.status(500).json({ error: 'Word 转换失败' });
-        }
-      }
+      return handleWordPreview(filePath, nameParam, mode, res);
     }
 
-    // ===== 文本 / JSON =====
+    // 文本/JSON
     if (mime.startsWith('text/') || mime === 'application/json') {
-      const content = await fsp.readFile(filePath, 'utf8');
-      return res.json({ type: mime, content, filename: nameParam });
+      return handleTextPreview(filePath, nameParam, mime, res);
     }
 
-    // ===== 图片 =====
+    // 图片
     if (mime.startsWith('image/')) {
-      try {
-        const processed = await sharp(filePath)
-          .resize({ width: 1200, withoutEnlargement: true, fit: 'inside', fastShrinkOnLoad: true })
-          .toBuffer();
-        return res.json({
-          type: mime,
-          content: processed.toString('base64'),
-          filename: nameParam,
-          encoding: 'base64'
-        });
-      } catch (e: any) {
-        logger?.error?.('图片处理失败: ' + e?.message);
-        return res.status(500).json({ error: '图片处理失败' });
-      }
+      return handleImagePreview(filePath, nameParam, mime, res);
     }
 
-    // ===== DOCX：mammoth → HTML；失败回落 soffice → HTML =====
+    // DOCX（非PDF模式）
     if (ext === 'docx') {
-      try {
-        const { value: html } = await mammoth.convertToHtml({ path: filePath });
-        return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-      } catch {
-        const htmlPath = await convertWithSoffice(filePath, 'html');
-        const html = await fsp.readFile(htmlPath, 'utf8');
-        return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-      }
+      return handleDocxPreview(filePath, nameParam, res);
     }
 
-    // ===== DOC / RTF：soffice → HTML；失败回落 PDF =====
+    // DOC/RTF（非PDF模式）
     if (ext === 'doc' || ext === 'rtf') {
-      try {
-        const htmlPath = await convertWithSoffice(filePath, 'html');
-        const html = await fsp.readFile(htmlPath, 'utf8');
-        return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-      } catch {
-        const pdfPath = await convertWithSoffice(filePath, 'pdf');
-        if (!(await isValidPdf(pdfPath))) {
-          return res.status(500).json({ error: '文档转换失败' });
-        }
-        res.setHeader('Content-Type', 'application/pdf');
-        return fs.createReadStream(pdfPath).pipe(res);
-      }
+      return handleDocRtfPreview(filePath, nameParam, res);
     }
 
-    // ===== XLS / XLSX =====
+    // Excel
     if (ext === 'xls' || ext === 'xlsx') {
-      // 强制对 .xls 使用 json 解析（更稳定）
-      const wb = XLSX.readFile(filePath, { cellDates: true });
-      const sheets = wb.SheetNames.map((name) => ({
-        name,
-        rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' })
-      }));
-      return res.json({ type: 'application/vnd.custom.sheet+json', sheets, filename: nameParam });
-      // if (mode === 'json') {
-      //   const wb = XLSX.readFile(filePath, { cellDates: true });
-      //   const sheets = wb.SheetNames.map((name) => ({
-      //     name,
-      //     rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' })
-      //   }));
-      //   return res.json({ type: 'application/vnd.custom.sheet+json', sheets, filename: nameParam });
-      // } else {
-      //   const htmlPath = await convertWithSoffice(filePath, 'html');
-      //   const html = await fsp.readFile(htmlPath, 'utf8');
-      //   return res.json({ type: 'text/html', content: wrapHtml(html, true), filename: nameParam });
-      // }
+      return handleExcelPreview(filePath, nameParam, res);
     }
 
-    // ===== PPT / PPTX → PDF 流 =====
+    // PPT
     if (ext === 'ppt' || ext === 'pptx') {
-      const pdfPath = await convertWithSoffice(filePath, 'pdf');
-      if (!(await isValidPdf(pdfPath))) {
-        return res.status(500).json({ error: 'PPT 转 PDF 失败' });
-      }
-      res.setHeader('Content-Type', 'application/pdf');
-      return fs.createReadStream(pdfPath).pipe(res);
+      return handlePptPreview(filePath, nameParam, res);
     }
 
-    // ===== PDF：直流 =====
+    // PDF
     if (ext === 'pdf') {
-      res.setHeader('Content-Type', 'application/pdf');
-      return fs.createReadStream(filePath).pipe(res);
+      return handlePdfPreview(filePath, res);
     }
 
     return res.status(415).json({ error: '不支持的文件类型' });
@@ -1075,61 +1169,7 @@ router.get('/preview', authenticateToken, async (req: Request, res: Response) =>
   }
 });
 
-// interface ShareRecord {
-//   shareId: string;        // 唯一分享ID（如 s_8f2d7c）
-//   username: string;       // 分享者用户名（关联用户目录）
-//   fileName: string;       // 分享的文件名/文件夹名
-//   type: 'file' | 'folder';// 资源类型
-//   expireAt: number;       // 过期时间（时间戳，毫秒）
-//   createdAt: number;      // 创建时间（时间戳，毫秒）
-// }
-// let shareStore: ShareRecord[] = []; // 内存存储（生产环境替换为数据库）
-//
-// // 简化版：生成分享链接（无提取码）
-// router.post('/share/create', authenticateToken, async (req: Request, res: Response) => {
-//   try {
-//     const { fileName, type } = req.body;
-//     const username = req.username || 'default';
-//
-//     // 验证参数
-//     if (!fileName || !['file', 'folder'].includes(type)) {
-//       return res.status(400).json({ error: '参数错误：缺少fileName或type' });
-//     }
-//
-//     // 验证资源存在性
-//     const userDir = isDev ? path.join(__dirname, '../uploads') : `/www/wwwroot/${username}`;
-//     const resourcePath = path.resolve(userDir, decodeURIComponent(fileName));
-//     if (!fs.existsSync(resourcePath)) {
-//       return res.status(404).json({ error: '资源不存在' });
-//     }
-//
-//     // 生成分享信息（默认7天过期，无提取码）
-//     const shareId = `s_${uuidv4().slice(0, 6)}`; // 保留短ID用于标识分享
-//     const expireAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7天有效期
-//
-//     // 存储分享记录（移除accessCode）
-//     shareStore.push({
-//       shareId,
-//       username,
-//       fileName,
-//       type,
-//       expireAt, // 移除accessCode字段
-//       createdAt: Date.now()
-//     });
-//
-//     // 返回分享信息（移除accessCode）
-//     res.json({
-//       shareId,
-//       expireAt,
-//       message: '分享成功，有效期7天'
-//     });
-//
-//   } catch (error: any) {
-//     logger.error(`生成分享失败：${error.message}`);
-//     res.status(500).json({ error: '生成分享链接失败' });
-//   }
-// });
-// --- 数据结构定义 ---
+
 
 interface ShareRecord {
   shareId: string;
