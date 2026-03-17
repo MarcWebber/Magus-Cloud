@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: magus-cloud:latest
+    container_name: magus-cloud-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MAGUS_DATA_DIR: /app/data
+      MAGUS_STORAGE_ROOT: ${MAGUS_STORAGE_ROOT:-/www/wwwroot}
+      NGROK_API_URL: http://ngrok:4040
+      MAGUS_ADMIN_USERNAME: ${MAGUS_ADMIN_USERNAME:-admin}
+      MAGUS_ADMIN_PASSWORD: ${MAGUS_ADMIN_PASSWORD:-change-me}
+      MAGUS_SESSION_SECRET: ${MAGUS_SESSION_SECRET:-change-me}
+      MAGUS_PUBLIC_APP_URL: ${MAGUS_PUBLIC_APP_URL:-http://localhost:3000}
+      MAGUS_PUBLIC_API_URL: ${MAGUS_PUBLIC_API_URL:-http://localhost:3000}
+      FEISHU_APP_ID: ${FEISHU_APP_ID:-}
+      FEISHU_APP_SECRET: ${FEISHU_APP_SECRET:-}
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+      NGROK_DOMAIN: ${NGROK_DOMAIN:-}
+      NGROK_TUNNEL_NAME: ${NGROK_TUNNEL_NAME:-magus-cloud}
+      NGROK_ADDR: ${NGROK_ADDR:-app:3000}
+      MAGUS_APP_NAME: ${MAGUS_APP_NAME:-Magus Cloud}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./cache-office:/app/cache-office
+      - ./storage:/www/wwwroot
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: magus-cloud-ngrok
+    restart: unless-stopped
+    depends_on:
+      - app
+    command:
+      - /bin/sh
+      - -c
+      - while [ ! -f /app/data/ngrok.yml ]; do sleep 2; done; ngrok start --all --config /app/data/ngrok.yml
+    ports:
+      - "4040:4040"
+    volumes:
+      - ./data:/app/data

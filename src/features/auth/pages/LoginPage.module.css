@@ -1,0 +1,101 @@
+.loginPanel {
+  width: min(460px, 100%);
+  padding: 36px 32px 30px;
+  border-radius: 28px;
+}
+
+.loginActions {
+  width: 100%;
+}
+
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.logoWrap {
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(29, 78, 216, 0.12), rgba(14, 165, 233, 0.08));
+  border: 1px solid rgba(29, 78, 216, 0.12);
+}
+
+.logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.brandText h1 {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.08;
+}
+
+.brandText p {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.loginForm :global(.ant-form-item-label > label) {
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.loginForm :global(.ant-input-affix-wrapper),
+.loginForm :global(.ant-input) {
+  min-height: 46px;
+  font-size: 1rem;
+}
+
+.loginActions :global(.ant-btn) {
+  min-height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.divider :global(.ant-divider-inner-text) {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+}
+
+.adminToggle {
+  justify-content: flex-start;
+  padding-inline: 0 !important;
+  color: var(--text-muted) !important;
+  font-weight: 600;
+}
+
+.adminFormWrap {
+  padding-top: 4px;
+  border-top: 1px solid rgba(20, 33, 61, 0.08);
+}
+
+@media (max-width: 640px) {
+  .loginPanel {
+    padding: 30px 22px 24px;
+  }
+
+  .brandBlock {
+    gap: 14px;
+  }
+
+  .logoWrap {
+    width: 64px;
+    height: 64px;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .brandText h1 {
+    font-size: 1.7rem;
+  }
+}

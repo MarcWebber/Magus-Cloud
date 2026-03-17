@@ -1,0 +1,37 @@
+{
+  "auth": {
+    "cookieName": "magus_session",
+    "sessionTtlSeconds": 7200,
+    "adminFallbackEnabled": true,
+    "adminUsername": "admin"
+  },
+  "feishu": {
+    "enabled": true,
+    "appId": "cli_a819b748663e900d",
+    "appSecret": "UaUj68uwB5X4Nl0PXvTwmcjBHrcs1fMS",
+    "appBaseUrl": "http://localhost:3000",
+    "callbackBaseUrl": "http://localhost:3000"
+  },
+  "ngrok": {
+    "enabled": false,
+    "apiUrl": "http://ngrok:4040",
+    "authtoken": "",
+    "domain": "",
+    "tunnelName": "magus-cloud",
+    "addr": "app:3000"
+  },
+  "storage": {
+    "rootDir": "/www/wwwroot",
+    "devRootDir": "F:\\magus\\Magus-Cloud\\uploads",
+    "quotaEnabled": false,
+    "defaultUserQuotaGb": 20
+  },
+  "ui": {
+    "appName": "Magus Cloud",
+    "supportUrl": ""
+  },
+  "metadata": {
+    "updatedAt": "2026-03-17T12:29:06.772Z",
+    "restartRequired": false
+  }
+}

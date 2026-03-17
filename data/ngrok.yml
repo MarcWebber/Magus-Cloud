@@ -1,0 +1,6 @@
+version: 2
+authtoken: 
+tunnels:
+  magus-cloud:
+    proto: http
+    addr: app:3000

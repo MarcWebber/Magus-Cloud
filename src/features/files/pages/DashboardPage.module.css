@@ -1,0 +1,371 @@
+.dashboardPage {
+  display: grid;
+  gap: 20px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.statCard :global(.ant-statistic) {
+  min-height: 110px;
+}
+
+.statCard :global(.ant-statistic-title) {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.statCard :global(.ant-statistic-content) {
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 700;
+}
+
+.usageGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
+  gap: 20px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.sectionHint {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.storageLegend {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.storageLegendItem {
+  display: grid;
+  gap: 8px;
+}
+
+.storageLegendLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.95rem;
+}
+
+.storageLegendLabel strong {
+  color: var(--text-main);
+}
+
+.storageLegendLabel span {
+  color: var(--text-muted);
+}
+
+.storageBar {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.storageBarFill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.segmentList {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.segmentItem {
+  display: grid;
+  gap: 8px;
+}
+
+.segmentMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.95rem;
+}
+
+.segmentMeta strong {
+  color: var(--text-main);
+}
+
+.segmentMeta span {
+  color: var(--text-muted);
+}
+
+.workspaceGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.treeCard {
+  overflow: hidden;
+}
+
+.treeCard :global(.ant-card-body) {
+  padding: 18px 0 14px;
+}
+
+.treeHeader {
+  padding: 0 18px 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.treeWrap {
+  padding: 10px 10px 0;
+  max-height: 720px;
+  overflow: auto;
+}
+
+.treeWrap :global(.ant-tree) {
+  background: transparent;
+  font-size: 0.97rem;
+}
+
+.treeWrap :global(.ant-tree .ant-tree-treenode) {
+  width: 100%;
+}
+
+.treeWrap :global(.ant-tree .ant-tree-node-content-wrapper) {
+  width: calc(100% - 24px);
+  min-height: 38px;
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+
+.treeWrap :global(.ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected) {
+  background: rgba(29, 78, 216, 0.12);
+  color: var(--text-main);
+}
+
+.treeWrap :global(.ant-tree .ant-tree-switcher) {
+  width: 24px;
+  line-height: 38px;
+}
+
+.treeLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.treeLabelText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.97rem;
+}
+
+.treeRootLabel {
+  font-weight: 700;
+}
+
+.toolbarCard :global(.ant-card-body) {
+  display: grid;
+  gap: 16px;
+}
+
+.toolbarRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarActions :global(.ant-btn) {
+  min-height: 42px;
+  font-size: 0.96rem;
+}
+
+.searchBox {
+  width: min(360px, 100%);
+}
+
+.progressWrap {
+  margin-top: 2px;
+}
+
+.contentCard {
+  overflow: hidden;
+}
+
+.contentHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.breadcrumbWrap {
+  display: grid;
+  gap: 8px;
+}
+
+.folderMeta {
+  color: var(--text-muted);
+  font-size: 0.94rem;
+}
+
+.linkButton {
+  padding: 0;
+  height: auto;
+  font-size: inherit;
+}
+
+.tableNameButton {
+  padding: 0;
+  height: auto;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.nameCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nameText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tablePath {
+  color: var(--text-muted);
+  font-size: 0.94rem;
+}
+
+.tableActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dashboardTable :global(.ant-table) {
+  font-size: 0.97rem;
+}
+
+.dashboardTable :global(.ant-table-thead > tr > th) {
+  background: #f6f9ff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.dashboardTable :global(.ant-table-tbody > tr > td) {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.dashboardTable :global(.ant-table-tbody > tr:hover > td) {
+  background: rgba(29, 78, 216, 0.03);
+}
+
+.shareList {
+  display: grid;
+  gap: 14px;
+}
+
+.shareCard {
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.shareCard :global(.ant-card-body) {
+  display: grid;
+  gap: 14px;
+}
+
+.shareHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.shareMeta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.shareUrl {
+  margin: 0;
+  word-break: break-all;
+  font-size: 0.95rem;
+}
+
+.shareActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.shareStats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 1180px) {
+  .statsGrid,
+  .usageGrid,
+  .workspaceGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contentHeader,
+  .toolbarRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchBox {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tableActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

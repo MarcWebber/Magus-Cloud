@@ -1,1302 +1,534 @@
-import { Router, Request, Response } from 'express';
+import {Router, Request, Response} from 'express';
 import fs from 'fs';
-import path from 'path';
-import { spawn } from 'child_process';
-import logger from "../logger";
-import { upload } from "../middleware/storage";
-import { authenticateToken, useGuard } from "../middleware/authenticationToken";
-import { getDirectorySize } from "../services/fileService";
-import { DevEnvGetFile, DevEnvGetUserUsage } from "../mock/files";
-import archiver from 'archiver';
-import { tmpdir } from 'os';
-import { v4 as uuidv4 } from 'uuid';
-import sharp from 'sharp';
-import * as mammoth from 'mammoth';
-const { exec } = require('child_process');
 import fsp from 'fs/promises';
-import crypto from 'crypto';
-import XLSX from 'xlsx';
+import path from 'path';
+import archiver from 'archiver';
+import checkDiskSpace from 'check-disk-space';
+import logger from '../logger';
+import {upload} from '../middleware/storage';
+import {authenticateToken} from '../middleware/authenticationToken';
+import {getDirectorySize} from '../services/fileService';
+import {extOf, mimeByExt, safeResolve} from '../utils/previewUtils';
+import {
+    handleDocRtfPreview,
+    handleDocxPreview,
+    handleExcelPreview,
+    handleImagePreview,
+    handlePdfPreview,
+    handlePptPreview,
+    handleTextPreview,
+    handleWordPreview,
+} from './previewService';
+import {getStorageRoot, getUserStorageRoot} from '../lib/runtime/paths';
+import {getSystemSettings} from '../lib/config/store';
+import {createShare, deleteShare, getShareById, listSharesByUser, updateShare} from '../modules/share/store';
+
 const router = Router();
 const isDev = process.env.NODE_ENV === 'development';
-import checkDiskSpace from 'check-disk-space';
-import {extOf, mimeByExt, safeResolve} from "../utils/previewUtils";
-import {
-  handleDocRtfPreview,
-  handleDocxPreview, handleExcelPreview,
-  handleImagePreview, handlePdfPreview, handlePptPreview,
-  handleTextPreview,
-  handleWordPreview
-} from "./previewService";
 
-const fixFileName = (name: string) => {
-  // 将 latin1 编码（Multer 的默认错误编码）转回 utf8（中文正确编码）
-  return Buffer.from(name, 'latin1').toString('utf8');
+type FileTreeNode = {
+    name: string;
+    size: string;
+    mtime: string;
+    type: 'file' | 'folder';
+    children?: FileTreeNode[];
 };
 
-const getUniqueFileName = async (filePath: string): Promise<string> => {
-  let targetPath = filePath;
-  let counter = 1;
-
-  const dir = path.dirname(filePath);
-  const ext = path.extname(filePath); // 获取后缀，如 .png
-  const name = path.basename(filePath, ext); // 获取主文件名，如 image
-
-  // 循环检查是否存在
-  while (true) {
-    try {
-      // 尝试访问文件
-      await fs.promises.access(targetPath);
-
-      // 如果没报错，说明文件存在，需要改名
-      // 格式： 原路径/文件名(计数).后缀
-      targetPath = path.join(dir, `${name}(${counter})${ext}`);
-      counter++;
-    } catch (e) {
-      // 如果报错，说明文件不存在，可以使用这个名字
-      break;
-    }
-  }
-  return targetPath;
-};
-// 封装一个递归读取文件夹的函数
-const readDirRecursive = (dirPath) => {
-  const items = fs.readdirSync(dirPath);
-  return items.map(name => {
-    const fullPath = path.join(dirPath, name);
-    const stats = fs.statSync(fullPath);
-    const isDir = stats.isDirectory();
-    return {
-      name,
-      size: stats.size + ' bytes',
-      mtime: stats.mtime.toISOString(),
-      type: isDir ? 'folder' : 'file',
-      // 若为文件夹，递归读取其子内容
-      ...(isDir && { children: readDirRecursive(fullPath) })
-    };
-  });
-};
-
-
-
-router.get('/files', ...useGuard(authenticateToken, (req, res) => {
-  // TODO 修改路径
-  if (isDev) {
-    logger.info('开发模式，返回测试文件信息');
-    return res.json(DevEnvGetFile());
-  }
-  const userDir = `/www/wwwroot/${req.username || `default`}`;
-  try {
-    const files = readDirRecursive(userDir);
-    // 关键：打印即将返回给前端的完整files数组
-    // console.log('后端返回的files数组:', JSON.stringify(files, null, 2));
-    const du = spawn('du', ['-sh', userDir]);
-    du.stdout.on('data', (data) => {
-      const usage = data.toString().split('\t')[0];
-      res.json({ files, usage });
-
-    });
-  } catch (e) {
-    res.status(500).json({ error: '无法读取文件信息' });
-  }
-}));
-
-//
-// router.post('/upload', authenticateToken, (req, res) => {
-//   // 打印req.user
-//   upload.single('file')(req, res, (err) => {
-//     logger.info("api/upload被运行了");
-//     console.log(`用户信息: ${JSON.stringify(req.user)}`);
-//     logger.info(`用户信息: ${JSON.stringify(req.user)}`);
-//     if (!req.file) {
-//       return res.status(400).json({ error: '未接收到文件' });
-//     }
-//     logger.info(`上传成功: ${req.file.originalname}`);
-//     res.json({ message: '上传成功', file: req.file.filename });
-//   });
-// });
-//
-// // 文件夹上传
-// router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), (req, res) => {
-//   try {
-//     // 1. 打印整个 req.files 数组（包含所有上传的文件信息）
-//     console.log('=== upload.array("folderFiles") 解析结果 ===');
-//     console.log('req.files:', req.files);
-//     if (!req.files || req.files.length === 0) {
-//       return res.status(400).json({ message: '未选择文件夹或文件夹为空' });
-//     }
-//     console.log('req.files.length', req.files.length, 'req.body.folderName', req.body.folderName)
-//
-//     res.status(200).json({
-//       message: '文件夹上传成功',
-//       fileCount: req.files.length,
-//       folderName: req.body.folderName
-//     });
-//   } catch (error) {
-//     console.error('文件夹上传错误:', error);
-//     res.status(500).json({ message: '文件夹上传失败', error: error.message });
-//   }
-// });
-router.post('/upload', authenticateToken, upload.single('file'), async (req: Request, res: Response) => {
-  if (!req.file) {
-    return res.status(400).json({ error: '未接收到文件' });
-  }
-
-  try {
-    const username = req.username || 'default';
-    const userRoot = process.env.NODE_ENV === 'development'
-        ? path.join(__dirname, '../uploads')
-        : `/www/wwwroot/${username}`;
-
-    // 修复文件名
-    const correctedFileName = fixFileName(req.file.originalname);
-
-    const finalFileName = path.basename(correctedFileName);
-
-    // 1. 定义初始目标路径
-    // 注意：这里用 let，因为后面可能会变
-    let targetPath = path.join(userRoot, finalFileName);
-
-    // 确保目录存在
-    await fs.promises.mkdir(userRoot, { recursive: true });
-
-    // 🔥 2. 【关键修改】检查重名并获取新路径
-    // 如果 image.png 存在，这里会变成 image(1).png 的完整路径
-    targetPath = await getUniqueFileName(targetPath);
-
-    // 3. 移动文件
-    await fs.promises.rename(req.file.path, targetPath);
-
-    // 🔥 4. 获取最终保存的文件名 (用于返回给前端)
-    const savedFileName = path.basename(targetPath);
-
-    logger.info(`上传成功: ${savedFileName}`);
-
-    // 返回新的文件名，这样前端显示的列表就是正确的了
-    res.json({ message: '上传成功', file: savedFileName });
-
-  } catch (moveError: any) {
-    logger.error(`移动文件失败: ${moveError.message}`);
-    try { await fs.promises.unlink(req.file.path); } catch (e) {}
-    res.status(500).json({ error: '保存文件失败' });
-  }
-});
-// 文件夹上传
-router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), async (req: Request, res: Response) => {
-  try {
-    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-      return res.status(400).json({ message: '未选择文件夹或文件夹为空' });
+function formatBytes(bytes: number, decimals = 2) {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+        return '0 Bytes';
     }
 
-    const username = req.username || 'default';
-    const userRoot = process.env.NODE_ENV === 'development'
-        ? path.join(__dirname, '../uploads')
-        : `/www/wwwroot/${username}`;
+    const units = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, unitIndex);
+    return `${value.toFixed(unitIndex === 0 ? 0 : decimals)} ${units[unitIndex]}`;
+}
 
-    await fs.promises.mkdir(userRoot, { recursive: true });
-
-    const successFiles = [];
-    const rootDirMap = new Map<string, string>();
-
-    for (const file of req.files as Express.Multer.File[]) {
-      const tempPath = file.path;
-      const correctedOriginalName = fixFileName(file.originalname);
-      const parts = correctedOriginalName.split('/');
-      const originalRootName = parts[0];
-
-      if (parts.length === 1) continue;
-
-      let finalRootPath = rootDirMap.get(originalRootName);
-
-      if (!finalRootPath) {
-        const initialRootPath = path.join(userRoot, originalRootName);
-        // 核心：计算唯一路径
-        finalRootPath = await getUniqueFileName(initialRootPath);
-        rootDirMap.set(originalRootName, finalRootPath);
-        await fs.promises.mkdir(finalRootPath, { recursive: true });
-      }
-
-      const relativePathInside = parts.slice(1).join(path.sep);
-      const targetPath = path.join(finalRootPath!, relativePathInside);
-
-      if (!targetPath.startsWith(path.resolve(userRoot))) continue;
-
-      await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
-      await fs.promises.rename(tempPath, targetPath);
-      successFiles.push(path.relative(userRoot, targetPath));
+function parseSize(size: string) {
+    const [rawValue, unit = 'Bytes'] = size.split(' ');
+    const value = Number(rawValue) || 0;
+    switch (unit) {
+        case 'KB':
+            return value * 1024;
+        case 'MB':
+            return value * 1024 ** 2;
+        case 'GB':
+            return value * 1024 ** 3;
+        case 'TB':
+            return value * 1024 ** 4;
+        default:
+            return value;
     }
+}
 
+async function ensureDir(dirPath: string) {
+    await fsp.mkdir(dirPath, {recursive: true});
+}
 
-    const createdRootPaths = Array.from(rootDirMap.values());
-    const finalRootFolderName = createdRootPaths.length > 0
-        ? path.basename(createdRootPaths[0])
-        : null;
+async function getUniqueTargetPath(filePath: string) {
+    const dir = path.dirname(filePath);
+    const ext = path.extname(filePath);
+    const name = path.basename(filePath, ext);
+    let counter = 0;
+    let candidate = filePath;
 
-    res.status(200).json({
-      message: '文件夹上传成功',
-      fileCount: successFiles.length,
-      folderName: finalRootFolderName // 👈 必须有这个
-    });
-
-  } catch (error: any) {
-    // ... 错误处理保持原样 ...
-    if (Array.isArray(req.files)) req.files.forEach(f => fs.unlink(f.path, () => {}));
-    res.status(500).json({ message: '文件夹上传失败', error: error.message });
-  }
-});
-//
-// router.get('/download', async (req: Request, res: Response) => {
-//   try {
-//     // 获取参数
-//     const shareId = req.query.shareId as string;
-//     const code = req.query.code as string; // 用户提交的提取码
-//
-//     // 如果不是分享链接，则尝试获取 name/type (原有登录下载逻辑)
-//     let nameParam = req.query.name as string;
-//     let typeParam = req.query.type as string;
-//
-//     let userDir: string;
-//
-//     // ============================
-//     // 模式 1: 通过分享链接下载
-//     // ============================
-//     if (shareId) {
-//       const shareRecord = shareStore.find(item => item.shareId === shareId);
-//
-//       // 1. 检查是否存在
-//       if (!shareRecord) {
-//         return res.status(404).json({ error: '分享链接无效' });
-//       }
-//
-//       // 2. 检查是否过期 (expireAt 为 null 则不检查)
-//       if (shareRecord.expireAt !== null && Date.now() > shareRecord.expireAt) {
-//         return res.status(403).json({ error: '分享已过期' });
-//       }
-//
-//       // 3. 检查提取码 (如果有 accessCode，则必须匹配)
-//       // 注意：前端生成的下载链接里如果没有带 code，这里会拦截
-//       if (shareRecord.accessCode && shareRecord.accessCode !== code) {
-//         return res.status(403).json({ error: '提取码错误或缺失' });
-//       }
-//
-//       // 4. 增加下载统计
-//       shareRecord.downloadCount = (shareRecord.downloadCount || 0) + 1;
-//
-//       // 使用分享记录里的文件名和类型
-//       nameParam = shareRecord.fileName;
-//       typeParam = shareRecord.type;
-//
-//       // 定位到分享者的目录
-//       userDir = isDev
-//           ? path.join(__dirname, '../uploads')
-//           : `/www/wwwroot/${shareRecord.username}`;
-//
-//     } else {
-//       // ============================
-//       // 模式 2: 登录用户内部下载 (原有逻辑)
-//       // ============================
-//       const authResult = await new Promise((resolve) => {
-//         authenticateToken(req, res, (err) => resolve(err ? false : true));
-//       });
-//       if (!authResult) return; // 中间件已处理响应
-//
-//       if (!nameParam || !typeParam) {
-//         return res.status(400).json({ error: '缺少参数' });
-//       }
-//
-//       userDir = isDev
-//           ? path.join(__dirname, '../uploads')
-//           : `/www/wwwroot/${req.username || 'default'}`;
-//     }
-//
-//     // ============================
-//     // 通用下载逻辑 (流式传输)
-//     // ============================
-//     const resourcePath = path.resolve(userDir, decodeURIComponent(nameParam));
-//     if (!fs.existsSync(resourcePath)) {
-//       return res.status(404).json({ error: '资源不存在' });
-//     }
-//
-//     const stats = fs.statSync(resourcePath);
-//
-//     // 文件下载
-//     if (typeParam === 'file' && stats.isFile()) {
-//       res.setHeader('Content-Type', 'application/octet-stream');
-//       // 解决中文文件名乱码问题
-//       const encodedFilename = encodeURIComponent(path.basename(nameParam));
-//       res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
-//       res.setHeader('Content-Length', stats.size);
-//
-//       const fileStream = fs.createReadStream(resourcePath);
-//       fileStream.pipe(res);
-//       return;
-//     }
-//
-//     // 文件夹下载 (ZIP)
-//     if (typeParam === 'folder' && stats.isDirectory()) {
-//       const tempZipPath = path.join(tmpdir(), `${uuidv4()}.zip`);
-//       const output = fs.createWriteStream(tempZipPath);
-//       const archive = archiver('zip', { zlib: { level: 9 } });
-//       const folderName = path.basename(resourcePath);
-//
-//       output.on('close', () => {
-//         const zipStats = fs.statSync(tempZipPath);
-//         const encodedFilename = encodeURIComponent(`${folderName}.zip`);
-//         res.setHeader('Content-Type', 'application/zip');
-//         res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
-//         res.setHeader('Content-Length', zipStats.size);
-//
-//         const zipStream = fs.createReadStream(tempZipPath);
-//         zipStream.pipe(res);
-//         zipStream.on('end', () => fs.unlinkSync(tempZipPath)); // 清理临时文件
-//       });
-//
-//       archive.pipe(output);
-//       archive.directory(resourcePath, folderName);
-//       archive.finalize();
-//       return;
-//     }
-//
-//     return res.status(400).json({ error: '资源类型不匹配' });
-//
-//   } catch (error: any) {
-//     logger.error(`下载失败：${error.message}`);
-//     // 防止 header 已发送后再发 json 报错
-//     if (!res.headersSent) res.status(500).json({ error: '下载处理失败' });
-//   }
-// });
-
-router.get('/download', async (req: Request, res: Response) => {
-  try {
-    const shareId = req.query.shareId as string;
-    const code = req.query.code as string;
-    let nameParam = req.query.name as string;
-    let typeParam = req.query.type as string;
-    let userDir: string;
-
-    // ============================
-    // 模式 1: 分享链接下载 (保持不变)
-    // ============================
-    if (shareId) {
-      const shareRecord = shareStore.find(item => item.shareId === shareId);
-      if (!shareRecord) {
-        return res.status(404).json({ error: '分享链接无效' });
-      }
-      if (shareRecord.expireAt !== null && Date.now() > shareRecord.expireAt) {
-        return res.status(403).json({ error: '分享已过期' });
-      }
-      if (shareRecord.accessCode && shareRecord.accessCode !== code) {
-        return res.status(403).json({ error: '提取码错误或缺失' });
-      }
-      shareRecord.downloadCount = (shareRecord.downloadCount || 0) + 1;
-      nameParam = shareRecord.fileName;
-      typeParam = shareRecord.type;
-      userDir = isDev
-          ? path.join(__dirname, '../uploads')
-          : `/www/wwwroot/${shareRecord.username}`;
-
-    } else {
-      // ============================
-      // 模式 2: 登录用户下载 (保持不变)
-      // ============================
-      const authResult = await new Promise((resolve) => {
-        authenticateToken(req, res, (err) => resolve(err ? false : true));
-      });
-      if (!authResult) return;
-      if (!nameParam || !typeParam) {
-        return res.status(400).json({ error: '缺少参数' });
-      }
-      userDir = isDev
-          ? path.join(__dirname, '../uploads')
-          : `/www/wwwroot/${req.username || 'default'}`;
-    }
-
-    // ============================
-    // 通用下载逻辑 (保持不变)
-    // ============================
-    const resourcePath = path.resolve(userDir, decodeURIComponent(nameParam));
-    if (!fs.existsSync(resourcePath)) {
-      return res.status(404).json({ error: '资源不存在' });
-    }
-
-    const stats = fs.statSync(resourcePath);
-
-    // 文件下载 (保持不变)
-    if (typeParam === 'file' && stats.isFile()) {
-      res.setHeader('Content-Type', 'application/octet-stream');
-      const encodedFilename = encodeURIComponent(path.basename(nameParam));
-      res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
-      res.setHeader('Content-Length', stats.size);
-
-      const fileStream = fs.createReadStream(resourcePath);
-      fileStream.pipe(res);
-      return;
-    }
-
-    // ============================
-    // 🔥 文件夹下载 (ZIP) - 核心修改区
-    // ============================
-    if (typeParam === 'folder' && stats.isDirectory()) {
-      const tempZipPath = path.join(tmpdir(), `${uuidv4()}.zip`);
-      const output = fs.createWriteStream(tempZipPath);
-      const archive = archiver('zip', { zlib: { level: 9 } }); // 使用较低的压缩级别以加快速度 (zlib: { level: 1 })
-      const folderName = path.basename(resourcePath);
-
-      // 🔥 新增：统一的清理函数
-      const cleanupTempFile = () => {
+    while (true) {
         try {
-          if (fs.existsSync(tempZipPath)) {
-            fs.unlinkSync(tempZipPath);
-            logger.info(`Temp zip file deleted: ${tempZipPath}`);
-          }
-        } catch (err: any) {
-          logger.error(`Failed to delete temp zip ${tempZipPath}: ${err.message}`);
+            await fsp.access(candidate);
+            counter += 1;
+            candidate = path.join(dir, `${name}(${counter})${ext}`);
+        } catch {
+            return candidate;
         }
-      };
-
-      // 🔥 关键：监听 res (响应) 事件，而不是 stream (流) 事件
-      // 'finish' 会在成功发送后触发
-      // 'close' 会在连接被客户端（用户）强行断开时触发
-      res.on('finish', cleanupTempFile);
-      res.on('close', cleanupTempFile);
-
-      // 监听压缩过程的错误
-      archive.on('error', (err) => {
-        logger.error(`Archiver error: ${err.message}`);
-        cleanupTempFile(); // 压缩出错也要删除
-        if (!res.headersSent) {
-          res.status(500).json({ error: '压缩文件夹失败' });
-        }
-      });
-
-      // 监听写入磁盘的错误
-      output.on('error', (err) => {
-        logger.error(`WriteStream error: ${err.message}`);
-        cleanupTempFile(); // 写入出错也要删除
-        if (!res.headersSent) {
-          res.status(500).json({ error: '写入临时文件失败' });
-        }
-      });
-
-      // 当压缩包写入磁盘 *完成* 后，开始把它传输给用户
-      output.on('close', () => {
-        const zipStats = fs.statSync(tempZipPath);
-        const encodedFilename = encodeURIComponent(`${folderName}.zip`);
-        res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
-        res.setHeader('Content-Length', zipStats.size);
-
-        const zipStream = fs.createReadStream(tempZipPath);
-        zipStream.pipe(res);
-
-        // 监听读取流的错误
-        zipStream.on('error', (err) => {
-          logger.error(`ReadStream error: ${err.message}`);
-          // 此时 'close' 事件会被触发，自动调用 cleanupTempFile
-        });
-
-        // ❌ 移除旧的、不可靠的清理逻辑
-        // zipStream.on('end', () => fs.unlinkSync(tempZipPath));
-      });
-
-      archive.pipe(output);
-      archive.directory(resourcePath, folderName);
-      archive.finalize();
-      return;
     }
-
-    return res.status(400).json({ error: '资源类型不匹配' });
-
-  } catch (error: any) {
-    logger.error(`下载失败：${error.message}`);
-    if (!res.headersSent) res.status(500).json({ error: '下载处理失败' });
-  }
-});
-// 清理临时文件的辅助函数
-function cleanupTempFile(filePath: string) {
-  if (fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-      logger.info(`临时文件已清理：${filePath}`);
-    } catch (err) {
-      logger.warn(`清理临时文件失败：${err.message}`);
-    }
-  }
 }
 
-router.post('/delete', useGuard(authenticateToken, async (req, res) => {
-  const { filename } = req.body;
-  if (!filename) {
-    return res.status(400).json({ error: '缺少文件名' });
-  }
-  console.log('delete filepath', req.body);
-
-  // 确定文件存储路径
-  const userDir = isDev
-    ? path.join(__dirname, '../uploads') // 开发环境
-    : `/www/wwwroot/${req.username || `default`}`; // 生产环境
-
-  // 关键修复：使用path.resolve确保路径正确解析
-  const targetPath = path.resolve(userDir, decodeURIComponent(filename));
-
-  // 安全检查：确保不会删除用户目录之外的文件
-  if (!targetPath.startsWith(userDir)) {
-    logger.error(`尝试访问用户目录外的文件：${targetPath}`);
-    return res.status(403).json({ error: '操作不允许' });
-  }
-
-  // 检查目标是否存在
-  try {
-    await fs.promises.access(targetPath);
-  } catch {
-    logger.error(`目标不存在：${targetPath}`);
-    return res.status(404).json({ error: '目标不存在' });
-  }
-
-  // 递归删除函数 - 增加详细错误日志
-  const deleteRecursive = async (pathToDelete) => {
-    try {
-      const stats = await fs.promises.stat(pathToDelete);
-
-      if (stats.isDirectory()) {
-        const files = await fs.promises.readdir(pathToDelete);
-        for (const file of files) {
-          const curPath = path.join(pathToDelete, file);
-          await deleteRecursive(curPath);
-        }
-        await fs.promises.rmdir(pathToDelete);
-        logger.debug(`已删除目录：${pathToDelete}`);
-      } else {
-        await fs.promises.unlink(pathToDelete);
-        logger.debug(`已删除文件：${pathToDelete}`);
-      }
-    } catch (err) {
-      logger.error(`删除${pathToDelete}失败：${err.message}`);
-      throw err; // 继续抛出错误让上层处理
-    }
-  };
-
-  // 执行删除操作
-  try {
-    await deleteRecursive(targetPath);
-    logger.info(`成功删除：${targetPath}`);
-    res.json({ message: '删除成功' });
-  } catch (err) {
-    logger.error(`删除失败：${err.message}`);
-    // 返回更具体的错误信息
-    res.status(500).json({
-      error: '删除失败',
-      details: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-}));
-
-
-// router.post('/delete', ...useGuard(authenticateToken, (req, res) => {
-//     const { filename } = req.body;
-//     if (!filename) {
-//         return res.status(400).json({ error: '缺少文件名' });
-//     }
-//     // 确定文件存储路径（与上传路径一致）
-//     const userDir = isDev
-//         ? path.join(__dirname, '../uploads') // 开发环境
-//         : `/www/wwwroot/${req.username || `default`}`; // 生产环境
-
-//     const filePath = path.join(userDir, decodeURIComponent(filename));
-
-//     // 检查文件是否存在
-//     if (!fs.existsSync(filePath)) {
-//         logger.error(`文件不存在：${filePath}`);
-//         return res.status(404).json({ error: '文件不存在' });
-//     }
-
-//     // 删除文件
-//     fs.unlink(filePath, (err) => {
-//         if (err) {
-//             logger.error(`删除文件失败：${err.message}`);
-//             return res.status(500).json({ error: '删除文件失败' });
-//         }
-//         logger.info(`成功删除文件：${filePath}`);
-//         res.json({ message: '文件删除成功' });
-//     });
-
-// }));
-
-function formatBytes(bytes, decimals = 2) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+function fixFileName(name: string) {
+    return Buffer.from(name, 'latin1').toString('utf8');
 }
 
-// 获取总体的用量情况，按人分组
-// router.get('/usage', authenticateToken, async (req, res) => {
-//     if (isDev) {
-//         // 开发环境下返回模拟数据
-//         return res.json(DevEnvGetUserUsage());
-//     }
-//
-//     // 生产环境的根目录 (假设用户目录就在此目录下)
-//     // ⚠ 注意：如果 /www/wwwroot 包含非用户目录，用量统计仍会不准确！
-//     const rootDir = `/www/wwwroot`;
-//
-//     // calculate the total size of files for each user
-//     try {
-//         // 1. 读取 rootDir 下的所有目录作为用户
-//         const users = fs.readdirSync(rootDir).filter(name => {
-//             // 确保是目录，并排除隐藏文件（例如 .git, .DS_Store 等）
-//             const fullPath = path.join(rootDir, name);
-//             return fs.statSync(fullPath).isDirectory() && !name.startsWith('.');
-//         });
-//
-//         const usage = await Promise.all(users.map(async user => {
-//             // 🚀 修正：使用 path.join 来安全地拼接路径
-//             const userDir = path.join(rootDir, user);
-//             const sizeInBytes = await getDirectorySize(userDir); // 假设返回字节数 (number)
-//
-//             // 💡 优化：在后端进行格式化，确保前端接收到带单位的字符串
-//             const sizeFormatted = formatBytes(sizeInBytes);
-//
-//             const name = user;
-//
-//             // 返回格式化后的 size 字符串，解决了前端总用量显示格式问题
-//             return { name, size: sizeFormatted };
-//         }));
-//
-//         logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
-//         res.json({ usage: usage });
-//     } catch (err) {
-//         logger.error(`获取用户用量失败：${err.message}`);
-//         res.status(500).json({ error: '无法获取用户用量信息' });
-//     }
-// });
+async function readDirRecursive(dirPath: string): Promise<FileTreeNode[]> {
+    const entries = await fsp.readdir(dirPath, {withFileTypes: true});
+    const result = await Promise.all(entries
+        .filter((entry) => !entry.name.startsWith('.'))
+        .map(async (entry) => {
+            const fullPath = path.join(dirPath, entry.name);
+            const stat = await fsp.stat(fullPath);
 
-function parseSize(sizeStr: string): number {
-  if (!isNaN(Number(sizeStr))) return Number(sizeStr);
-  const match = sizeStr.match(/(\d+(?:\.\d+)?)(\s*)([a-zA-Z]+)/);
-  if (!match) return 0;
-  const [_, numStr, , unit] = match;
-  const num = parseFloat(numStr);
-  const unitMap: Record<string, number> = { BYTES: 1, B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
-  return num * (unitMap[unit.toUpperCase()] || 1);
+            if (entry.isDirectory()) {
+                return {
+                    name: entry.name,
+                    size: formatBytes(await getDirectorySize(fullPath)),
+                    mtime: stat.mtime.toISOString(),
+                    type: 'folder' as const,
+                    children: await readDirRecursive(fullPath),
+                };
+            }
+
+            return {
+                name: entry.name,
+                size: formatBytes(stat.size),
+                mtime: stat.mtime.toISOString(),
+                type: 'file' as const,
+            };
+        }));
+
+    return result.sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
 }
 
+async function resolveUserDir(username: string) {
+    const userDir = getUserStorageRoot(username, isDev);
+    await ensureDir(userDir);
+    return userDir;
+}
 
-router.get('/usage', authenticateToken, async (req, res) => {
-  // dev 模式也返回新格式
-  if (isDev) {
-    const devData = DevEnvGetUserUsage(); // 假设返回 { usage: [...] }
-    const totalUsedBytes = devData.usage.reduce((sum: number, u: any) => sum + parseSize(u.size), 0);
+async function buildUsagePayload() {
+    const rootDir = getStorageRoot(isDev);
+    await ensureDir(rootDir);
 
-    return res.json({
-      usage: devData.usage,
-      totalUsed: formatBytes(totalUsedBytes), // 格式化
-      totalFree: "45.8 GB" // 模拟剩余空间
-    });
-  }
-
-  // 生产环境
-  const rootDir = `/www/wwwroot`;
-
-  try {
-    // 1. 计算所有用户的已用空间 (保持不变)
-    const users = fs.readdirSync(rootDir).filter(name => {
-      const fullPath = path.join(rootDir, name);
-      return fs.statSync(fullPath).isDirectory() && !name.startsWith('.');
-    });
-
-    const usage = await Promise.all(users.map(async user => {
-      const userDir = path.join(rootDir, user);
-      const sizeInBytes = await getDirectorySize(userDir);
-      const sizeFormatted = formatBytes(sizeInBytes);
-      return { name: user, size: sizeFormatted };
+    const entries = await fsp.readdir(rootDir, {withFileTypes: true});
+    const users = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'));
+    const usage = await Promise.all(users.map(async (entry) => {
+        const userDir = path.join(rootDir, entry.name);
+        const size = await getDirectorySize(userDir);
+        return {
+            name: entry.name,
+            size: formatBytes(size),
+        };
     }));
 
-    // 2. 计算已用空间总和
-    const totalUsedBytes = usage.reduce((sum, user) => sum + parseSize(user.size), 0);
+    const totalUsedBytes = usage.reduce((sum, item) => sum + parseSize(item.size), 0);
+    const diskInfo = await checkDiskSpace(rootDir).catch(() => null);
 
-    // 🔥 3. 获取磁盘剩余空间
-    const diskInfo = await checkDiskSpace(rootDir);
-    const totalFreeBytes = diskInfo.free; // 单位: 字节 (number)
-
-    logger.info(`获取用户用量信息：${JSON.stringify(usage)}`);
-
-    // 🔥 4. 返回新格式的 JSON
-    res.json({
-      usage: usage,
-      totalUsed: formatBytes(totalUsedBytes), // 格式化已用
-      totalFree: formatBytes(totalFreeBytes)  // 格式化剩余
-    });
-
-  } catch (err: any)  {
-    logger.error(`获取用户用量失败：${err.message}`);
-    res.status(500).json({ error: '无法获取用户用量信息' });
-  }
-});
-
-// // ===== MIME / 扩展名 =====
-// const mimeByExt: Record<string, string> = {
-//   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp',
-//   txt: 'text/plain', md: 'text/markdown', html: 'text/plain', css: 'text/css', js: 'text/javascript',
-//   ts: 'text/typescript', json: 'application/json', xml: 'text/xml', csv: 'text/csv',
-//   py: 'text/plain', java: 'text/plain', cpp: 'text/plain', c: 'text/plain',
-//   doc: 'application/msword',
-//   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-//   rtf: 'application/rtf',
-//   xls: 'application/vnd.ms-excel',
-//   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-//   ppt: 'application/vnd.ms-powerpoint',
-//   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-//   pdf: 'application/pdf',
-// };
-// const extOf = (name: string) => name.split('.').pop()?.toLowerCase() || '';
-//
-// // ===== 安全路径 & 缓存 =====
-// const CACHE_DIR = path.resolve(process.cwd(), 'cache-office');
-// const LO_PROFILE_DIR = path.join(CACHE_DIR, 'lo-profile'); // 独立的 LibreOffice 用户目录
-// async function ensureCacheDir() {
-//   if (!fs.existsSync(CACHE_DIR)) await fsp.mkdir(CACHE_DIR, { recursive: true });
-//   if (!fs.existsSync(LO_PROFILE_DIR)) await fsp.mkdir(LO_PROFILE_DIR, { recursive: true });
-// }
-// function safeResolve(baseDir: string, subPath: string) {
-//   const realBase = path.resolve(baseDir);
-//   const target = path.resolve(baseDir, subPath);
-//   if (!target.startsWith(realBase + path.sep)) throw new Error('PathTraversal');
-//   return target;
-// }
-// function hashKey(filePath: string, stat: fs.Stats, target: 'html' | 'pdf') {
-//   const h = crypto.createHash('sha256');
-//   h.update(filePath);
-//   h.update(String(stat.size));
-//   h.update(String(stat.mtimeMs));
-//   h.update(target);
-//   return h.digest('hex').slice(0, 16);
-// }
-// async function detectFileByExt(dir: string, ext: string) {
-//   const files = await fsp.readdir(dir);
-//   const found = files.find(f => f.toLowerCase().endsWith('.' + ext));
-//   return found ? path.join(dir, found) : null;
-// }
-//
-// // ===== 工具：验证 PDF 有效性 =====
-// async function isValidPdf(p: string) {
-//   try {
-//     const stat = await fsp.stat(p);
-//     if (!stat.size || stat.size < 128) return false;
-//     const fd = await fsp.open(p, 'r');
-//     const buf = Buffer.alloc(5);
-//     await fd.read(buf, 0, 5, 0);
-//     await fd.close();
-//     return buf.toString('utf8') === '%PDF-';
-//   } catch {
-//     return false;
-//   }
-// }
-//
-// // ===== LibreOffice 调用 =====
-// function runSoffice(srcPath: string, outDir: string, fmt: 'html' | 'pdf') {
-//   const args = [
-//     `-env:UserInstallation=file://${LO_PROFILE_DIR.replace(/ /g, '%20')}`, // 独立配置，避免权限/锁问题
-//     '--headless', '--nologo', '--nofirststartwizard',
-//     '--convert-to', fmt,
-//     '--outdir', outDir,
-//     srcPath,
-//   ];
-//   return new Promise<void>((resolve, reject) => {
-//     const p = spawn('soffice', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-//     let err = '';
-//     p.on('error', (e) => reject(e)); // 关键：捕获 ENOENT 等
-//     p.stderr.on('data', d => { err += d.toString(); });
-//     p.on('close', (code) => {
-//       if (code === 0) resolve();
-//       else reject(new Error(`soffice failed(${code}): ${err.trim()}`));
-//     });
-//   });
-// }
-//
-// async function convertWithSoffice(srcPath: string, target: 'html' | 'pdf') {
-//   await ensureCacheDir();
-//   const stat = await fsp.stat(srcPath);
-//   const key = hashKey(srcPath, stat, target);
-//   const outDir = path.join(CACHE_DIR, key);
-//   const done = path.join(outDir, `.done.${target}`);
-//
-//   if (fs.existsSync(done)) {
-//     const mainCached = target === 'html'
-//       ? await detectFileByExt(outDir, 'html')
-//       : await detectFileByExt(outDir, 'pdf');
-//     if (mainCached) {
-//       if (target === 'pdf') {
-//         if (await isValidPdf(mainCached)) return mainCached;
-//       } else {
-//         if ((await fsp.stat(mainCached)).size > 0) return mainCached;
-//       }
-//     }
-//     // 缓存失效，继续重转
-//   }
-//
-//   await fsp.rm(outDir, { recursive: true, force: true });
-//   await fsp.mkdir(outDir, { recursive: true });
-//
-//   await runSoffice(srcPath, outDir, target);
-//
-//   const main = target === 'html'
-//     ? await detectFileByExt(outDir, 'html')
-//     : await detectFileByExt(outDir, 'pdf');
-//
-//   if (!main) throw new Error('Soffice output missing');
-//   if (target === 'pdf') {
-//     if (!(await isValidPdf(main))) throw new Error('Invalid PDF produced by soffice');
-//   } else {
-//     const size = (await fsp.stat(main)).size;
-//     if (size === 0) throw new Error('Empty HTML produced by soffice');
-//   }
-//
-//   await fsp.writeFile(done, Date.now().toString());
-//   return main;
-// }
-//
-// // ===== HTML 包裹（含“去打印页盒子”覆盖）=====
-// function wrapHtml(inner: string, wide = false) {
-//   return `<!DOCTYPE html>
-// <html>
-// <head>
-// <meta charset="utf-8" />
-// <meta name="viewport" content="width=device-width,initial-scale=1" />
-// <style>
-//   html, body { height: 100%; }
-//   body { margin: 0; padding: 16px; background: #fff; color: #222; box-sizing: border-box; }
-//   *, *::before, *::after { box-sizing: inherit; }
-//   .doc-container { max-width: ${wide ? '1400px' : '1000px'}; margin: 0 auto; }
-//   img { max-width: 100%; height: auto; }
-//   table { border-collapse: collapse; max-width: 100%; table-layout: auto; }
-//   table, td, th { border: 1px solid #ddd; }
-//   td, th { padding: 6px 8px; }
-//   .WordSection1, .Section0, .page, .sd-page {
-//     width: 100% !important; max-width: 100% !important;
-//     height: auto !important; max-height: none !important;
-//     overflow: visible !important;
-//   }
-//   [style*="overflow:auto"], [style*="overflow: scroll"] { overflow: visible !important; }
-//   [style*="height:"], [style*="max-height:"] { height: auto !important; max-height: none !important; }
-//   [style*="width:595"], [style*="width:596"], [style*="width:612"], [style*="width:794"], [style*="width:842"] {
-//     width: 100% !important; max-width: 100% !important;
-//   }
-//
-// </style>
-// </head>
-// <body>
-//   <div class="doc-container">${inner}</div>
-//   <script>
-//   (function() {
-//     function unboxPages() {
-//       try {
-//         var nodes = Array.prototype.slice.call(document.querySelectorAll('div, section, main, article, body'));
-//         nodes.forEach(function(el) {
-//           var cs = getComputedStyle(el);
-//           var hasOverflow = (cs.overflowY && cs.overflowY !== 'visible') || (cs.overflowX && cs.overflowX !== 'visible');
-//           var hasScroll = el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
-//           var fixedWidthPx = /px$/.test(cs.width);
-//           var fixedHeightPx = /px$/.test(cs.height);
-//           if (hasOverflow || hasScroll || fixedWidthPx || fixedHeightPx) {
-//             el.style.width = '100%';
-//             el.style.maxWidth = '100%';
-//             el.style.height = 'auto';
-//             el.style.maxHeight = 'none';
-//             el.style.overflow = 'visible';
-//           }
-//           if (cs.transform && cs.transform !== 'none') el.style.transform = 'none';
-//         });
-//         document.querySelectorAll('table').forEach(function(t) {
-//           t.style.width = '100%'; t.style.maxWidth = '100%'; t.style.tableLayout = 'auto';
-//         });
-//         document.querySelectorAll('img').forEach(function(img) {
-//           img.style.maxWidth = '100%'; img.style.height = 'auto';
-//         });
-//       } catch (e) {}
-//     }
-//     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', unboxPages);
-//     else unboxPages();
-//   })();
-//   </script>
-// </body>
-// </html>`;
-// }
-//
-// // ===== 路由实现 =====
-// router.get('/preview', authenticateToken, async (req: Request, res: Response) => {
-//   try {
-//     const nameParam = req.query.name;
-//     const typeParam = req.query.type;
-//     const mode = String(req.query.mode || ''); // xlsx 可选 mode=json
-//
-//     if (typeof nameParam !== 'string' || typeof typeParam !== 'string') {
-//       return res.status(400).json({ error: '参数格式错误，需要字符串类型' });
-//     }
-//     if (!nameParam || !typeParam) {
-//       return res.status(400).json({ error: '缺少参数：name或type' });
-//     }
-//
-//     const userDir = isDev
-//       ? path.join(__dirname, '../uploads')
-//       : `/www/wwwroot/${(req as any).username || 'chensheng'}`;
-//
-//     const filePath = safeResolve(userDir, decodeURIComponent(nameParam));
-//     if (!fs.existsSync(filePath)) {
-//       logger?.error?.(`预览文件不存在：${filePath}`);
-//       return res.status(404).json({ error: '文件不存在' });
-//     }
-//
-//     const stats = fs.statSync(filePath);
-//     if (typeParam !== 'file' || !stats.isFile()) {
-//       return res.status(400).json({ error: '仅支持文件预览' });
-//     }
-//
-//     const ext = extOf(nameParam);
-//     const mime = mimeByExt[ext] || 'application/octet-stream';
-//
-//     // ===== Word 系列：mode=pdf 优先；若 PDF 无效则回 HTML =====
-//     if (mode === 'pdf' && (ext === 'doc' || ext === 'docx' || ext === 'rtf')) {
-//       try {
-//         const pdfPath = await convertWithSoffice(filePath, 'pdf');
-//         if (!(await isValidPdf(pdfPath))) throw new Error('Invalid PDF');
-//         res.setHeader('Content-Type', 'application/pdf');
-//         return fs.createReadStream(pdfPath).pipe(res);
-//       } catch (e: any) {
-//         logger?.error?.(`Word→PDF 失败：${e?.message || e}`);
-//         // 转而返回 HTML（mammoth 优先）
-//         try {
-//           if (ext === 'docx') {
-//             const { value: html } = await mammoth.convertToHtml({ path: filePath });
-//             return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-//           }
-//           const htmlPath = await convertWithSoffice(filePath, 'html');
-//           const html = await fsp.readFile(htmlPath, 'utf8');
-//           return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-//         } catch (e2: any) {
-//           logger?.error?.(`Word HTML 回退失败：${e2?.message || e2}`);
-//           return res.status(500).json({ error: 'Word 转换失败' });
-//         }
-//       }
-//     }
-//
-//     // ===== 文本 / JSON =====
-//     if (mime.startsWith('text/') || mime === 'application/json') {
-//       const content = await fsp.readFile(filePath, 'utf8');
-//       return res.json({ type: mime, content, filename: nameParam });
-//     }
-//
-//     // ===== 图片 =====
-//     if (mime.startsWith('image/')) {
-//       try {
-//         const processed = await sharp(filePath)
-//           .resize({ width: 1200, withoutEnlargement: true, fit: 'inside', fastShrinkOnLoad: true })
-//           .toBuffer();
-//         return res.json({
-//           type: mime,
-//           content: processed.toString('base64'),
-//           filename: nameParam,
-//           encoding: 'base64'
-//         });
-//       } catch (e: any) {
-//         logger?.error?.('图片处理失败: ' + e?.message);
-//         return res.status(500).json({ error: '图片处理失败' });
-//       }
-//     }
-//
-//     // ===== DOCX：mammoth → HTML；失败回落 soffice → HTML =====
-//     if (ext === 'docx') {
-//       try {
-//         const { value: html } = await mammoth.convertToHtml({ path: filePath });
-//         return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-//       } catch {
-//         const htmlPath = await convertWithSoffice(filePath, 'html');
-//         const html = await fsp.readFile(htmlPath, 'utf8');
-//         return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-//       }
-//     }
-//
-//     // ===== DOC / RTF：soffice → HTML；失败回落 PDF =====
-//     if (ext === 'doc' || ext === 'rtf') {
-//       try {
-//         const htmlPath = await convertWithSoffice(filePath, 'html');
-//         const html = await fsp.readFile(htmlPath, 'utf8');
-//         return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-//       } catch {
-//         const pdfPath = await convertWithSoffice(filePath, 'pdf');
-//         if (!(await isValidPdf(pdfPath))) {
-//           return res.status(500).json({ error: '文档转换失败' });
-//         }
-//         res.setHeader('Content-Type', 'application/pdf');
-//         return fs.createReadStream(pdfPath).pipe(res);
-//       }
-//     }
-//
-//     // ===== XLS / XLSX =====
-//     if (ext === 'xls' || ext === 'xlsx') {
-//       // 强制对 .xls 使用 json 解析（更稳定）
-//       const wb = XLSX.readFile(filePath, { cellDates: true });
-//       const sheets = wb.SheetNames.map((name) => ({
-//         name,
-//         rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' })
-//       }));
-//       return res.json({ type: 'application/vnd.custom.sheet+json', sheets, filename: nameParam });
-//       // if (mode === 'json') {
-//       //   const wb = XLSX.readFile(filePath, { cellDates: true });
-//       //   const sheets = wb.SheetNames.map((name) => ({
-//       //     name,
-//       //     rows: XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' })
-//       //   }));
-//       //   return res.json({ type: 'application/vnd.custom.sheet+json', sheets, filename: nameParam });
-//       // } else {
-//       //   const htmlPath = await convertWithSoffice(filePath, 'html');
-//       //   const html = await fsp.readFile(htmlPath, 'utf8');
-//       //   return res.json({ type: 'text/html', content: wrapHtml(html, true), filename: nameParam });
-//       // }
-//     }
-//
-//     // ===== PPT / PPTX → PDF 流 =====
-//     if (ext === 'ppt' || ext === 'pptx') {
-//       const pdfPath = await convertWithSoffice(filePath, 'pdf');
-//       if (!(await isValidPdf(pdfPath))) {
-//         return res.status(500).json({ error: 'PPT 转 PDF 失败' });
-//       }
-//       res.setHeader('Content-Type', 'application/pdf');
-//       return fs.createReadStream(pdfPath).pipe(res);
-//     }
-//
-//     // ===== PDF：直流 =====
-//     if (ext === 'pdf') {
-//       res.setHeader('Content-Type', 'application/pdf');
-//       return fs.createReadStream(filePath).pipe(res);
-//     }
-//
-//     return res.status(415).json({ error: '不支持的文件类型' });
-//
-//   } catch (error: any) {
-//     if (error?.message === 'PathTraversal') {
-//       return res.status(403).json({ error: '操作不允许' });
-//     }
-//     (logger || console).error(`预览处理失败：${error?.message || error}`);
-//     return res.status(500).json({ error: '服务器处理预览失败' });
-//   }
-// });
-
-router.get('/preview', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    // ===== 1. 参数校验（原有逻辑保留）=====
-    const nameParam = req.query.name;
-    const typeParam = req.query.type;
-    const mode = String(req.query.mode || '');
-
-    if (typeof nameParam !== 'string' || typeof typeParam !== 'string') {
-      return res.status(400).json({ error: '参数格式错误，需要字符串类型' });
-    }
-    if (!nameParam || !typeParam) {
-      return res.status(400).json({ error: '缺少参数：name或type' });
-    }
-
-    // ===== 2. 文件路径解析（原有逻辑保留）=====
-    const userDir = isDev
-        ? path.join(__dirname, '../uploads')
-        : `/www/wwwroot/${(req as any).username || 'chensheng'}`;
-
-    const filePath = safeResolve(userDir, decodeURIComponent(nameParam));
-    if (!fs.existsSync(filePath)) {
-      logger?.error?.(`预览文件不存在：${filePath}`);
-      return res.status(404).json({ error: '文件不存在' });
-    }
-
-    const stats = fs.statSync(filePath);
-    if (typeParam !== 'file' || !stats.isFile()) {
-      return res.status(400).json({ error: '仅支持文件预览' });
-    }
-
-    // ===== 3. 获取文件类型信息 =====
-    const ext = extOf(nameParam);
-    const mime = mimeByExt[ext] || 'application/octet-stream';
-
-    // ===== 4. 分发到不同的处理函数 =====
-    // Word系列（mode=pdf）
-    if (mode === 'pdf' && (ext === 'doc' || ext === 'docx' || ext === 'rtf')) {
-      return handleWordPreview(filePath, nameParam, mode, res);
-    }
-
-    // 文本/JSON
-    if (mime.startsWith('text/') || mime === 'application/json') {
-      return handleTextPreview(filePath, nameParam, mime, res);
-    }
-
-    // 图片
-    if (mime.startsWith('image/')) {
-      return handleImagePreview(filePath, nameParam, mime, res);
-    }
-
-    // DOCX（非PDF模式）
-    if (ext === 'docx') {
-      return handleDocxPreview(filePath, nameParam, res);
-    }
-
-    // DOC/RTF（非PDF模式）
-    if (ext === 'doc' || ext === 'rtf') {
-      return handleDocRtfPreview(filePath, nameParam, res);
-    }
-
-    // Excel
-    if (ext === 'xls' || ext === 'xlsx') {
-      return handleExcelPreview(filePath, nameParam, res);
-    }
-
-    // PPT
-    if (ext === 'ppt' || ext === 'pptx') {
-      return handlePptPreview(filePath, nameParam, res);
-    }
-
-    // PDF
-    if (ext === 'pdf') {
-      return handlePdfPreview(filePath, res);
-    }
-
-    return res.status(415).json({ error: '不支持的文件类型' });
-
-  } catch (error: any) {
-    if (error?.message === 'PathTraversal') {
-      return res.status(403).json({ error: '操作不允许' });
-    }
-    (logger || console).error(`预览处理失败：${error?.message || error}`);
-    return res.status(500).json({ error: '服务器处理预览失败' });
-  }
-});
-
-
-
-interface ShareRecord {
-  shareId: string;
-  username: string;
-  fileName: string;
-  type: 'file' | 'folder';
-  expireAt: number | null; // null 代表永久有效
-  accessCode: string;      // 提取码，空字符串代表公开
-  createdAt: number;
-  clickCount: number;      // 新增：查看次数
-  downloadCount: number;   // 新增：下载次数
+    return {
+        usage,
+        totalUsed: formatBytes(totalUsedBytes),
+        totalFree: formatBytes(diskInfo?.free || 0),
+    };
 }
 
-let shareStore: ShareRecord[] = [];
+function getUserQuotaBytes() {
+    const settings = getSystemSettings();
+    if (!settings.storage.quotaEnabled) {
+        return null;
+    }
 
-// 辅助函数：生成4位随机提取码
-const generateAccessCode = () => Math.random().toString(36).substring(2, 6).toLowerCase();
+    return Math.max(Number(settings.storage.defaultUserQuotaGb) || 0, 0.001) * 1024 ** 3;
+}
+
+function buildQuotaPayload(usedBytes: number) {
+    const quotaBytes = getUserQuotaBytes();
+    if (!quotaBytes) {
+        return {
+            enabled: false,
+            total: null,
+            remaining: null,
+            percent: null,
+        };
+    }
+
+    const remaining = Math.max(quotaBytes - usedBytes, 0);
+    return {
+        enabled: true,
+        total: formatBytes(quotaBytes),
+        remaining: formatBytes(remaining),
+        percent: Math.min(Number(((usedBytes / quotaBytes) * 100).toFixed(1)), 100),
+    };
+}
+
+async function cleanupTempUpload(filePath: string) {
+    try {
+        await fsp.unlink(filePath);
+    } catch {
+    }
+}
+
+async function cleanupTempUploads(files: Array<{path: string}>) {
+    await Promise.all(files.map((file) => cleanupTempUpload(file.path)));
+}
+
+async function enforceQuotaOrThrow(userDir: string, incomingBytes: number) {
+    const quotaBytes = getUserQuotaBytes();
+    if (!quotaBytes) {
+        return;
+    }
+
+    const currentSize = await getDirectorySize(userDir);
+    if (currentSize + incomingBytes > quotaBytes) {
+        const error = new Error(`超出配额限制，最多可用 ${formatBytes(quotaBytes)}`) as Error & {status?: number};
+        error.status = 413;
+        throw error;
+    }
+}
+
+router.get('/files', authenticateToken, async (req, res) => {
+    try {
+        const username = req.username || 'default';
+        const userDir = await resolveUserDir(username);
+        const files = await readDirRecursive(userDir);
+        const usedBytes = await getDirectorySize(userDir);
+
+        return res.json({
+            files,
+            usage: formatBytes(usedBytes),
+            quota: buildQuotaPayload(usedBytes),
+        });
+    } catch (error) {
+        logger.error(`Failed to list files: ${error instanceof Error ? error.message : error}`);
+        return res.status(500).json({error: '获取文件列表失败'});
+    }
+});
+
+router.post('/upload', authenticateToken, upload.single('file'), async (req: Request, res: Response) => {
+    if (!req.file) {
+        return res.status(400).json({error: '缺少上传文件'});
+    }
+
+    try {
+        const username = req.username || 'default';
+        const userRoot = await resolveUserDir(username);
+        await enforceQuotaOrThrow(userRoot, req.file.size);
+        const finalFileName = path.basename(fixFileName(req.file.originalname));
+        const targetPath = await getUniqueTargetPath(path.join(userRoot, finalFileName));
+
+        await fsp.rename(req.file.path, targetPath);
+        return res.json({
+            success: true,
+            file: path.basename(targetPath),
+        });
+    } catch (error) {
+        await cleanupTempUpload(req.file.path);
+
+        if (error instanceof Error && 'status' in error && typeof error.status === 'number') {
+            return res.status(error.status).json({error: error.message});
+        }
+        logger.error(`Failed to save upload: ${error instanceof Error ? error.message : error}`);
+        return res.status(500).json({error: '保存文件失败'});
+    }
+});
+
+router.post('/upload-folder', authenticateToken, upload.array('folderFiles'), async (req: Request, res: Response) => {
+    if (!Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({error: '缺少文件夹内容'});
+    }
+
+    try {
+        const username = req.username || 'default';
+        const userRoot = await resolveUserDir(username);
+        const incomingBytes = req.files.reduce((sum, file) => sum + (file.size || 0), 0);
+        await enforceQuotaOrThrow(userRoot, incomingBytes);
+        const rootDirMap = new Map<string, string>();
+
+        for (const file of req.files) {
+            const originalName = fixFileName(file.originalname);
+            const parts = originalName.split('/');
+            if (parts.length < 2) {
+                continue;
+            }
+
+            const requestedRoot = parts[0];
+            let finalRoot = rootDirMap.get(requestedRoot);
+
+            if (!finalRoot) {
+                finalRoot = await getUniqueTargetPath(path.join(userRoot, requestedRoot));
+                rootDirMap.set(requestedRoot, finalRoot);
+                await ensureDir(finalRoot);
+            }
+
+            const relativePath = parts.slice(1).join(path.sep);
+            const targetPath = path.join(finalRoot, relativePath);
+            await ensureDir(path.dirname(targetPath));
+            await fsp.rename(file.path, targetPath);
+        }
+
+        const firstRoot = Array.from(rootDirMap.values())[0];
+        return res.json({
+            success: true,
+            folderName: firstRoot ? path.basename(firstRoot) : '',
+            fileCount: req.files.length,
+        });
+    } catch (error) {
+        await cleanupTempUploads(req.files);
+        if (error instanceof Error && 'status' in error && typeof error.status === 'number') {
+            return res.status(error.status).json({error: error.message});
+        }
+        logger.error(`Failed to save folder upload: ${error instanceof Error ? error.message : error}`);
+        return res.status(500).json({error: '保存文件夹失败'});
+    }
+});
+
+router.get('/download', async (req: Request, res: Response) => {
+    try {
+        const shareId = typeof req.query.shareId === 'string' ? req.query.shareId : '';
+        const code = typeof req.query.code === 'string' ? req.query.code : '';
+        let nameParam = typeof req.query.name === 'string' ? req.query.name : '';
+        let typeParam = typeof req.query.type === 'string' ? req.query.type : '';
+        let userDir = '';
+
+        if (shareId) {
+            const shareRecord = getShareById(shareId);
+            if (!shareRecord) {
+                return res.status(404).json({error: '分享不存在'});
+            }
+            if (shareRecord.accessCode && shareRecord.accessCode !== code) {
+                return res.status(403).json({error: '提取码错误'});
+            }
+
+            updateShare(shareId, (record) => ({
+                ...record,
+                downloadCount: record.downloadCount + 1,
+            }));
+
+            nameParam = shareRecord.fileName;
+            typeParam = shareRecord.type;
+            userDir = await resolveUserDir(shareRecord.username);
+        } else {
+            const authenticated = await new Promise<boolean>((resolve) => {
+                authenticateToken(req, res, () => resolve(true));
+            });
+
+            if (!authenticated || res.headersSent) {
+                return;
+            }
+
+            if (!nameParam || !typeParam) {
+                return res.status(400).json({error: '缺少下载参数'});
+            }
+
+            userDir = await resolveUserDir(req.username || 'default');
+        }
+
+        const resourcePath = safeResolve(userDir, decodeURIComponent(nameParam));
+        const stat = await fsp.stat(resourcePath);
+
+        if (typeParam === 'file' && stat.isFile()) {
+            return res.download(resourcePath, path.basename(resourcePath));
+        }
+
+        if (typeParam === 'folder' && stat.isDirectory()) {
+            const zipName = `${path.basename(resourcePath)}.zip`;
+            res.setHeader('Content-Type', 'application/zip');
+            res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipName)}"`);
+
+            const archive = archiver('zip', {zlib: {level: 9}});
+            archive.on('error', (archiveError) => {
+                logger.error(`Archive error: ${archiveError.message}`);
+                if (!res.headersSent) {
+                    res.status(500).json({error: '打包文件夹失败'});
+                } else {
+                    res.end();
+                }
+            });
+
+            archive.pipe(res);
+            archive.directory(resourcePath, path.basename(resourcePath));
+            await archive.finalize();
+            return;
+        }
+
+        return res.status(400).json({error: '资源类型不匹配'});
+    } catch (error) {
+        logger.error(`Failed to download resource: ${error instanceof Error ? error.message : error}`);
+        if (!res.headersSent) {
+            return res.status(500).json({error: '下载失败'});
+        }
+    }
+});
+
+router.post('/delete', authenticateToken, async (req, res) => {
+    try {
+        const filename = typeof req.body?.filename === 'string' ? req.body.filename : '';
+        if (!filename) {
+            return res.status(400).json({error: '缺少文件名'});
+        }
+
+        const userDir = await resolveUserDir(req.username || 'default');
+        const targetPath = safeResolve(userDir, decodeURIComponent(filename));
+        await fsp.rm(targetPath, {recursive: true, force: false});
+
+        return res.json({success: true});
+    } catch (error) {
+        if (error instanceof Error && error.message === 'PathTraversal') {
+            return res.status(403).json({error: '已阻止路径穿越访问'});
+        }
+        return res.status(500).json({
+            error: error instanceof Error ? error.message : '删除失败',
+        });
+    }
+});
+
+router.get('/usage', authenticateToken, async (req, res) => {
+    try {
+        const payload = await buildUsagePayload();
+        return res.json(payload);
+    } catch (error) {
+        logger.error(`Failed to build usage payload: ${error instanceof Error ? error.message : error}`);
+        return res.status(500).json({error: '获取空间用量失败'});
+    }
+});
+
+router.get('/preview', authenticateToken, async (req: Request, res: Response) => {
+    try {
+        const nameParam = typeof req.query.name === 'string' ? req.query.name : '';
+        const typeParam = typeof req.query.type === 'string' ? req.query.type : '';
+        const mode = String(req.query.mode || '');
+
+        if (!nameParam || !typeParam) {
+            return res.status(400).json({error: '缺少预览参数'});
+        }
+
+        const userDir = await resolveUserDir(req.username || 'default');
+        const filePath = safeResolve(userDir, decodeURIComponent(nameParam));
+        const stats = await fsp.stat(filePath);
+
+        if (typeParam !== 'file' || !stats.isFile()) {
+            return res.status(400).json({error: '当前仅支持预览文件'});
+        }
+
+        const ext = extOf(nameParam);
+        const mime = mimeByExt[ext] || 'application/octet-stream';
+
+        if (mode === 'pdf' && ['doc', 'docx', 'rtf'].includes(ext)) {
+            return handleWordPreview(filePath, nameParam, mode, res);
+        }
+        if (mime.startsWith('text/') || mime === 'application/json') {
+            return handleTextPreview(filePath, nameParam, mime, res);
+        }
+        if (mime.startsWith('image/')) {
+            return handleImagePreview(filePath, nameParam, mime, res);
+        }
+        if (ext === 'docx') {
+            return handleDocxPreview(filePath, nameParam, res);
+        }
+        if (ext === 'doc' || ext === 'rtf') {
+            return handleDocRtfPreview(filePath, nameParam, res);
+        }
+        if (ext === 'xls' || ext === 'xlsx') {
+            return handleExcelPreview(filePath, nameParam, res);
+        }
+        if (ext === 'ppt' || ext === 'pptx') {
+            return handlePptPreview(filePath, nameParam, res);
+        }
+        if (ext === 'pdf') {
+            return handlePdfPreview(filePath, res);
+        }
+
+        return res.status(415).json({error: '暂不支持该文件类型预览'});
+    } catch (error) {
+        if (error instanceof Error && error.message === 'PathTraversal') {
+            return res.status(403).json({error: '已阻止路径穿越访问'});
+        }
+
+        return res.status(500).json({error: '预览失败'});
+    }
+});
 
 router.post('/share/create', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    // 1. 接收新参数: expireDays (天数), hasCode (布尔值)
-    const { fileName, type, expireDays, hasCode } = req.body;
-    const username = req.username || 'default';
+    try {
+        const {fileName, type, expireDays, hasCode} = req.body || {};
+        if (!fileName || !['file', 'folder'].includes(type)) {
+            return res.status(400).json({error: '分享参数不合法'});
+        }
 
-    if (!fileName || !['file', 'folder'].includes(type)) {
-      return res.status(400).json({ error: '参数错误' });
+        const username = req.username || 'default';
+        const userDir = await resolveUserDir(username);
+        const resourcePath = safeResolve(userDir, decodeURIComponent(fileName));
+        await fsp.access(resourcePath);
+
+        const record = createShare({
+            username,
+            fileName,
+            type,
+            expireDays: Number(expireDays) || 0,
+            hasCode: Boolean(hasCode),
+        });
+
+        return res.json({
+            shareId: record.shareId,
+            code: record.accessCode,
+            expireAt: record.expireAt,
+            message: '分享创建成功',
+        });
+    } catch (error) {
+        if (error instanceof Error && error.message === 'PathTraversal') {
+            return res.status(403).json({error: '已阻止路径穿越访问'});
+        }
+        return res.status(500).json({error: '创建分享失败'});
     }
-
-    // 验证资源存在性
-    const userDir = isDev ? path.join(__dirname, '../uploads') : `/www/wwwroot/${username}`;
-    const resourcePath = path.resolve(userDir, decodeURIComponent(fileName));
-    if (!fs.existsSync(resourcePath)) {
-      return res.status(404).json({ error: '资源不存在' });
-    }
-
-    // 2. 生成短ID
-    const shareId = `s_${uuidv4().slice(0, 6)}`;
-
-    // 3. 计算过期时间
-    // 前端传 0 代表永久，expireAt 设为 null
-    // 前端传 > 0，计算时间戳
-    let expireAt: number | null = null;
-    const days = parseInt(expireDays);
-    if (!isNaN(days) && days > 0) {
-      expireAt = Date.now() + days * 24 * 60 * 60 * 1000;
-    }
-
-    // 4. 生成提取码
-    const accessCode = hasCode ? generateAccessCode() : '';
-
-    // 5. 存入 Store
-    shareStore.push({
-      shareId,
-      username,
-      fileName,
-      type,
-      expireAt,
-      accessCode,
-      createdAt: Date.now(),
-      clickCount: 0,
-      downloadCount: 0
-    });
-
-    // 6. 返回给前端 (包含提取码)
-    res.json({
-      shareId,
-      code: accessCode,
-      expireAt,
-      message: '分享创建成功'
-    });
-
-  } catch (error: any) {
-    logger.error(`生成分享失败：${error.message}`);
-    res.status(500).json({ error: '生成分享链接失败' });
-  }
 });
 
-// 获取当前用户的分享列表
-router.get('/share/list', authenticateToken, (req: Request, res: Response) => {
-  const username = req.username;
-  // 过滤出当前用户的分享
-  const myShares = shareStore.filter(s => s.username === username);
-  // 按创建时间倒序
-  myShares.sort((a, b) => b.createdAt - a.createdAt);
-  res.json(myShares);
+router.get('/share/list', authenticateToken, async (req: Request, res: Response) => {
+    return res.json(listSharesByUser(req.username || 'default'));
 });
 
-// 取消分享
-router.delete('/share/:shareId', authenticateToken, (req: Request, res: Response) => {
-  const { shareId } = req.params;
-  const username = req.username;
+router.delete('/share/:shareId', authenticateToken, async (req: Request, res: Response) => {
+    const deleted = deleteShare(req.params.shareId, req.username || 'default');
+    if (!deleted) {
+        return res.status(404).json({error: '分享不存在'});
+    }
 
-  const index = shareStore.findIndex(s => s.shareId === shareId && s.username === username);
-  if (index !== -1) {
-    shareStore.splice(index, 1); // 从数组移除
-    res.json({ success: true, message: '分享已取消' });
-  } else {
-    res.status(404).json({ error: '分享不存在或无权操作' });
-  }
+    return res.json({success: true});
 });
 
 router.get('/share/info/:shareId', async (req: Request, res: Response) => {
-  try {
-    const { shareId } = req.params;
-    const shareRecord = shareStore.find(s => s.shareId === shareId);
-
+    const shareRecord = getShareById(req.params.shareId);
     if (!shareRecord) {
-      return res.status(404).json({ error: '分享链接不存在或已取消' });
+        return res.status(404).json({error: '分享不存在'});
     }
 
-    // 检查过期
-    if (shareRecord.expireAt !== null && Date.now() > shareRecord.expireAt) {
-      return res.status(410).json({ error: '该分享已过期' });
-    }
+    updateShare(req.params.shareId, (record) => ({
+        ...record,
+        clickCount: record.clickCount + 1,
+    }));
 
-    // 返回安全信息 (❌ 绝对不能返回 accessCode)
-    res.json({
-      fileName: shareRecord.fileName,
-      username: shareRecord.username, // 分享者
-      expireAt: shareRecord.expireAt,
-      type: shareRecord.type,
-      // 告诉前端：这个文件是否设置了提取码
-      hasCode: !!shareRecord.accessCode
+    return res.json({
+        fileName: shareRecord.fileName,
+        username: shareRecord.username,
+        expireAt: shareRecord.expireAt,
+        type: shareRecord.type,
+        hasCode: Boolean(shareRecord.accessCode),
     });
-
-  } catch (error) {
-    res.status(500).json({ error: '获取信息失败' });
-  }
 });
+
 export default router;

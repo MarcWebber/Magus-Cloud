@@ -1,0 +1,10 @@
+node_modules
+dist
+server-dist
+.git
+.idea
+.vscode
+coverage
+playwright-report
+test-results
+cache-office
