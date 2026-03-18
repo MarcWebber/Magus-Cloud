@@ -11,6 +11,9 @@ services:
     environment:
       NODE_ENV: production
       MAGUS_DATA_DIR: /app/data
+      MAGUS_SERVICE_CONFIG: /app/config/magus.config.json
+      MAGUS_CLOUD_CONFIG: /app/config/cloud.config.json
+      MAGUS_DATABASE_URL: ${MAGUS_DATABASE_URL:-postgresql://magus:magus@postgres:5432/magus}
       MAGUS_STORAGE_ROOT: ${MAGUS_STORAGE_ROOT:-/www/wwwroot}
       NGROK_API_URL: http://ngrok:4040
       MAGUS_ADMIN_USERNAME: ${MAGUS_ADMIN_USERNAME:-admin}
@@ -30,8 +33,24 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./config:/app/config
       - ./cache-office:/app/cache-office
       - ./storage:/www/wwwroot
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: magus-cloud-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-magus}
+      POSTGRES_USER: ${POSTGRES_USER:-magus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-magus}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
 
   ngrok:
     image: ngrok/ngrok:latest
@@ -47,3 +66,6 @@ services:
       - "4040:4040"
     volumes:
       - ./data:/app/data
+
+volumes:
+  postgres-data:

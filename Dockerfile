@@ -21,8 +21,9 @@ RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server-dist ./server-dist
+COPY --from=build /app/config ./config
 
-RUN mkdir -p /app/data /app/logs /app/cache-office /www/wwwroot
+RUN mkdir -p /app/data /app/logs /app/cache-office /www/wwwroot /app/config
 
 ENV NODE_ENV=production
 ENV MAGUS_DATA_DIR=/app/data

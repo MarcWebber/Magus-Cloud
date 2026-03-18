@@ -1,170 +1,98 @@
-import fs from 'fs';
-import path from 'path';
-import {SystemSettings} from './types';
+import {SettingsFieldSources, SystemSettings} from './types';
 import {syncNgrokConfig} from '../../integrations/ngrok/config';
-
-const DATA_DIR = path.resolve(process.cwd(), process.env.MAGUS_DATA_DIR || 'data');
-const SETTINGS_FILE = path.join(DATA_DIR, 'system-settings.json');
+import {getCloudConfig, updateCloudConfig} from '../cloud/config';
+import {
+    getRuntimeSettingsMetadata,
+    updateRuntimeSettingOverrides,
+} from '../platform/appSettings';
 
 const MASK = '********';
-const SENSITIVE_FIELDS: Array<[keyof SystemSettings, string]> = [
-    ['feishu', 'appSecret'],
-    ['ngrok', 'authtoken'],
-];
-
-function ensureDataDir() {
-    if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, {recursive: true});
-    }
-}
 
 function getDefaultSettings(): SystemSettings {
-    const now = new Date().toISOString();
-    const appBaseUrl = process.env.MAGUS_PUBLIC_APP_URL || process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'http://localhost:3000';
-    const callbackBaseUrl = process.env.MAGUS_PUBLIC_API_URL || process.env.PUBLIC_SERVER_URL || appBaseUrl;
+    const loaded = getCloudConfig();
+    const runtimeMetadata = getRuntimeSettingsMetadata();
 
     return {
         auth: {
-            cookieName: process.env.MAGUS_COOKIE_NAME || 'magus_session',
-            sessionTtlSeconds: Number(process.env.MAGUS_SESSION_TTL || 2 * 60 * 60),
-            adminFallbackEnabled: true,
-            adminUsername: process.env.MAGUS_ADMIN_USERNAME || 'admin',
+            cookieName: loaded.config.auth.cookieName,
+            sessionTtlSeconds: loaded.config.auth.sessionTtlSeconds,
+            adminFallbackEnabled: loaded.config.auth.adminFallbackEnabled,
+            adminUsername: loaded.config.auth.adminUsername,
         },
         feishu: {
-            enabled: Boolean(process.env.FEISHU_APP_ID && process.env.FEISHU_APP_SECRET),
+            enabled: loaded.config.feishu.enabled,
             appId: process.env.FEISHU_APP_ID || '',
             appSecret: process.env.FEISHU_APP_SECRET || '',
-            appBaseUrl,
-            callbackBaseUrl,
+            redirectUri: process.env.FEISHU_REDIRECT_URI || `${loaded.config.feishu.callbackBaseUrl.replace(/\/$/, '')}/api/auth/feishu/callback`,
+            appBaseUrl: loaded.config.feishu.appBaseUrl,
+            callbackBaseUrl: loaded.config.feishu.callbackBaseUrl,
         },
         ngrok: {
-            enabled: Boolean(process.env.NGROK_AUTHTOKEN),
-            apiUrl: process.env.NGROK_API_URL || 'http://ngrok:4040',
+            enabled: loaded.config.ngrok.enabled,
+            apiUrl: loaded.config.ngrok.apiUrl,
             authtoken: process.env.NGROK_AUTHTOKEN || '',
-            domain: process.env.NGROK_DOMAIN || '',
-            tunnelName: process.env.NGROK_TUNNEL_NAME || 'magus-cloud',
-            addr: process.env.NGROK_ADDR || 'app:3000',
-        },
-        storage: {
-            rootDir: process.env.MAGUS_STORAGE_ROOT || '/www/wwwroot',
-            devRootDir: process.env.MAGUS_DEV_STORAGE_ROOT || path.resolve(process.cwd(), 'uploads'),
-            quotaEnabled: (process.env.MAGUS_QUOTA_ENABLED || 'false') === 'true',
-            defaultUserQuotaGb: Math.max(Number(process.env.MAGUS_USER_QUOTA_GB || 20), 0.001),
+            domain: loaded.config.ngrok.domain,
+            tunnelName: loaded.config.ngrok.tunnelName,
+            addr: loaded.config.ngrok.addr,
         },
         ui: {
-            appName: process.env.MAGUS_APP_NAME || 'Magus Cloud',
-            supportUrl: process.env.MAGUS_SUPPORT_URL || '',
+            appName: loaded.config.ui.appName,
+            supportUrl: loaded.config.ui.supportUrl,
+            defaultLocale: loaded.config.ui.defaultLocale,
         },
         metadata: {
-            updatedAt: now,
-            restartRequired: false,
+            updatedAt: runtimeMetadata.updatedAt || loaded.updatedAt,
+            restartRequired: runtimeMetadata.restartRequired,
+            configVersion: loaded.version,
+            source: 'env+service-config',
         },
     };
-}
-
-function normalizeLegacySettings(incoming: Partial<SystemSettings> & {
-    feishu?: Partial<SystemSettings['feishu']> & {redirectBaseUrl?: string};
-}) {
-    const normalized = JSON.parse(JSON.stringify(incoming || {})) as Partial<SystemSettings> & {
-        feishu?: Partial<SystemSettings['feishu']> & {redirectBaseUrl?: string};
-    };
-
-    if (normalized.feishu?.redirectBaseUrl) {
-        normalized.feishu.appBaseUrl ||= normalized.feishu.redirectBaseUrl;
-        normalized.feishu.callbackBaseUrl ||= normalized.feishu.redirectBaseUrl;
-        delete normalized.feishu.redirectBaseUrl;
-    }
-
-    return normalized as Partial<SystemSettings>;
-}
-
-function mergeSettings(base: SystemSettings, incoming: Partial<SystemSettings>): SystemSettings {
-    return {
-        ...base,
-        ...incoming,
-        auth: {
-            ...base.auth,
-            ...(incoming.auth || {}),
-        },
-        feishu: {
-            ...base.feishu,
-            ...(incoming.feishu || {}),
-        },
-        ngrok: {
-            ...base.ngrok,
-            ...(incoming.ngrok || {}),
-        },
-        storage: {
-            ...base.storage,
-            ...(incoming.storage || {}),
-        },
-        ui: {
-            ...base.ui,
-            ...(incoming.ui || {}),
-        },
-        metadata: {
-            ...base.metadata,
-            ...(incoming.metadata || {}),
-        },
-    };
-}
-
-function looksMasked(value: unknown) {
-    return typeof value === 'string' && (value === MASK || /^\*+$/.test(value));
-}
-
-function sanitizeIncoming(existing: SystemSettings, incoming: Partial<SystemSettings>): Partial<SystemSettings> {
-    const sanitized = normalizeLegacySettings(JSON.parse(JSON.stringify(incoming || {})) as Partial<SystemSettings>);
-
-    for (const [section, field] of SENSITIVE_FIELDS) {
-        const target = sanitized[section] as Record<string, string> | undefined;
-        if (!target || !(field in target)) {
-            continue;
-        }
-
-        const nextValue = target[field];
-        const currentValue = (existing[section] as Record<string, string>)[field];
-
-        if (looksMasked(nextValue)) {
-            target[field] = currentValue;
-        }
-    }
-
-    return sanitized;
-}
-
-function readSettingsFile(): Partial<SystemSettings> {
-    ensureDataDir();
-    if (!fs.existsSync(SETTINGS_FILE)) {
-        return {};
-    }
-
-    try {
-        return normalizeLegacySettings(JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8')) as Partial<SystemSettings>);
-    } catch {
-        return {};
-    }
-}
-
-function writeSettingsFile(settings: SystemSettings) {
-    ensureDataDir();
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
-    syncNgrokConfig(settings);
 }
 
 export function getDataDir() {
-    ensureDataDir();
-    return DATA_DIR;
+    return process.env.MAGUS_DATA_DIR || 'data';
 }
 
-export function getSettingsFilePath() {
-    return SETTINGS_FILE;
+export function getSettingsFieldSources(): SettingsFieldSources {
+    return {
+        auth: {
+            cookieName: 'service-config',
+            sessionTtlSeconds: 'service-config',
+            adminFallbackEnabled: 'service-config',
+            adminUsername: 'service-config',
+        },
+        feishu: {
+            enabled: 'service-config',
+            appId: 'env',
+            appSecret: 'env',
+            redirectUri: 'env',
+            appBaseUrl: 'service-config',
+            callbackBaseUrl: 'service-config',
+        },
+        ngrok: {
+            enabled: 'service-config',
+            apiUrl: 'service-config',
+            authtoken: 'env',
+            domain: 'service-config',
+            tunnelName: 'service-config',
+            addr: 'service-config',
+        },
+        ui: {
+            appName: 'service-config',
+            supportUrl: 'service-config',
+            defaultLocale: 'service-config',
+        },
+    };
 }
 
 export function getSystemSettings(): SystemSettings {
-    const settings = mergeSettings(getDefaultSettings(), readSettingsFile());
-    writeSettingsFile(settings);
+    const settings = getDefaultSettings();
+    syncNgrokConfig(settings);
     return settings;
+}
+
+export function getPublicUiSettings() {
+    return getSystemSettings().ui;
 }
 
 function maskSecret(value: string) {
@@ -193,36 +121,47 @@ export function getMaskedSystemSettings(): SystemSettings {
     };
 }
 
-export function updateSystemSettings(incoming: Partial<SystemSettings>) {
-    const current = getSystemSettings();
-    const merged = mergeSettings(current, sanitizeIncoming(current, incoming));
-    const next = {
-        ...merged,
-        storage: {
-            ...merged.storage,
-            defaultUserQuotaGb: Math.max(Number(merged.storage.defaultUserQuotaGb) || 1, 0.001),
-        },
+export async function updateSystemSettings(incoming: Partial<SystemSettings>) {
+    const nextConfig = updateCloudConfig({
+        auth: incoming.auth ? {
+            cookieName: incoming.auth.cookieName,
+            sessionTtlSeconds: incoming.auth.sessionTtlSeconds,
+            adminFallbackEnabled: incoming.auth.adminFallbackEnabled,
+            adminUsername: incoming.auth.adminUsername,
+        } : undefined,
+        feishu: incoming.feishu ? {
+            enabled: incoming.feishu.enabled,
+            appBaseUrl: incoming.feishu.appBaseUrl,
+            callbackBaseUrl: incoming.feishu.callbackBaseUrl,
+        } : undefined,
+        ngrok: incoming.ngrok ? {
+            enabled: incoming.ngrok.enabled,
+            apiUrl: incoming.ngrok.apiUrl,
+            domain: incoming.ngrok.domain,
+            tunnelName: incoming.ngrok.tunnelName,
+            addr: incoming.ngrok.addr,
+        } : undefined,
+        ui: incoming.ui ? {
+            appName: incoming.ui.appName,
+            supportUrl: incoming.ui.supportUrl,
+            defaultLocale: incoming.ui.defaultLocale,
+        } : undefined,
+    });
+
+    const restartRequired = Boolean(incoming.auth || incoming.feishu || incoming.ngrok);
+    await updateRuntimeSettingOverrides({}, {restartRequired});
+    const next = getSystemSettings();
+    syncNgrokConfig(next);
+    return {
+        ...next,
         metadata: {
-            updatedAt: new Date().toISOString(),
-            restartRequired: true,
+            ...next.metadata,
+            updatedAt: nextConfig.updatedAt,
+            restartRequired,
         },
     };
-
-    writeSettingsFile(next);
-    return next;
 }
 
 export function clearRestartRequiredFlag() {
-    const current = getSystemSettings();
-    const next = {
-        ...current,
-        metadata: {
-            ...current.metadata,
-            restartRequired: false,
-            updatedAt: new Date().toISOString(),
-        },
-    };
-
-    writeSettingsFile(next);
-    return next;
+    return getSystemSettings();
 }

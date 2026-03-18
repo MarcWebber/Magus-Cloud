@@ -1,0 +1,72 @@
+{
+  "cluster": {
+    "mode": "shared-storage",
+    "gatewayPublicUrl": "http://localhost:3000",
+    "nodes": [
+      {
+        "id": "node-local",
+        "baseUrl": "http://localhost:3000",
+        "enabled": true,
+        "tags": ["primary", "development"]
+      }
+    ]
+  },
+  "storage": {
+    "sharedRootDir": "./uploads",
+    "totalCapacityGb": 500,
+    "reserveFreeGb": 20,
+    "defaultUserQuotaGb": 20,
+    "defaultSoftQuotaGb": 200,
+    "defaultHardQuotaGb": 20,
+    "quotaEnabled": true,
+    "quotaMode": "hard",
+    "warningThresholdPercent": 85,
+    "autoExpandEnabled": false
+  },
+  "users": [
+    {
+      "username": "admin",
+      "displayName": "Administrator",
+      "quotaGb": 20,
+      "enabled": true,
+      "homeDir": "admin"
+    },
+    {
+      "username": "test",
+      "displayName": "Test User",
+      "quotaGb": 20,
+      "enabled": true,
+      "homeDir": "test"
+    }
+  ],
+  "backup": {
+    "snapshotRootDir": "./snapshots",
+    "retentionCount": 10,
+    "compression": "tar.gz",
+    "allowUserExport": true,
+    "verifyAfterCreate": true
+  },
+  "ui": {
+    "appName": "Magus Cloud",
+    "supportUrl": "",
+    "defaultLocale": "zh-CN"
+  },
+  "auth": {
+    "cookieName": "magus_session",
+    "sessionTtlSeconds": 7200,
+    "adminFallbackEnabled": true,
+    "adminUsername": "admin"
+  },
+  "feishu": {
+    "enabled": true,
+    "appBaseUrl": "http://localhost:3000",
+    "callbackBaseUrl": "http://localhost:3000"
+  },
+  "ngrok": {
+    "enabled": false,
+    "apiUrl": "http://localhost:4040",
+    "domain": "",
+    "tunnelName": "magus-cloud",
+    "addr": "app:3000"
+  }
+}

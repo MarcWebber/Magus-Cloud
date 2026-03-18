@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  app:
+    image: magus-cloud:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MAGUS_NODE_ID: node-1
+      MAGUS_CLOUD_CONFIG: /app/config/cloud.config.json
+      MAGUS_DATABASE_URL: postgresql://magus:magus@postgres:5432/magus
+      MAGUS_PUBLIC_APP_URL: https://cloud.example.com
+      MAGUS_PUBLIC_API_URL: https://cloud.example.com
+      MAGUS_STORAGE_ROOT: /mnt/magus-storage
+      MAGUS_SESSION_SECRET: change-me
+      MAGUS_ADMIN_PASSWORD: change-me
+    volumes:
+      - ./cloud.config.json:/app/config/cloud.config.json:ro
+      - /mnt/magus-storage:/mnt/magus-storage
+      - /mnt/magus-backups:/mnt/magus-backups

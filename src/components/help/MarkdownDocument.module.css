@@ -1,0 +1,85 @@
+.markdown {
+  color: var(--text-main);
+  line-height: 1.75;
+}
+
+.markdown :global(h1),
+.markdown :global(h2),
+.markdown :global(h3),
+.markdown :global(h4) {
+  margin: 1.4em 0 0.6em;
+  line-height: 1.25;
+}
+
+.markdown :global(h1) {
+  font-size: 1.9rem;
+}
+
+.markdown :global(h2) {
+  font-size: 1.45rem;
+}
+
+.markdown :global(h3) {
+  font-size: 1.16rem;
+}
+
+.markdown :global(p),
+.markdown :global(ul),
+.markdown :global(ol),
+.markdown :global(blockquote) {
+  margin: 0.85em 0;
+}
+
+.markdown :global(ul),
+.markdown :global(ol) {
+  padding-left: 1.25rem;
+}
+
+.markdown :global(img) {
+  display: block;
+  width: 100%;
+  max-width: 760px;
+  margin: 1rem 0;
+  border-radius: 20px;
+  border: 1px solid rgba(20, 33, 61, 0.08);
+  box-shadow: var(--shadow-md);
+}
+
+.markdown :global(pre) {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 18px;
+  background: #0f172a;
+  color: #dbeafe;
+}
+
+.markdown :global(code) {
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+}
+
+.markdown :global(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.markdown :global(th),
+.markdown :global(td) {
+  padding: 12px 14px;
+  border: 1px solid rgba(20, 33, 61, 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown :global(th) {
+  background: rgba(29, 78, 216, 0.08);
+}
+
+.markdown :global(blockquote) {
+  padding: 14px 18px;
+  border-left: 4px solid #1d4ed8;
+  background: rgba(29, 78, 216, 0.06);
+  border-radius: 0 16px 16px 0;
+}

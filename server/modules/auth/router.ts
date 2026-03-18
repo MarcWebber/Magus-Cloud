@@ -2,8 +2,19 @@ import {Router} from 'express';
 import {clearSessionCookies, readSessionFromRequest, setSessionCookies} from '../../lib/auth/session';
 import {buildFeishuLoginUrl, exchangeCodeForFeishuUser} from '../../integrations/feishu/client';
 import {getSystemSettings} from '../../lib/config/store';
+import {ensureRuntimeReady} from '../../lib/platform/bootstrap';
+import {getConfiguredCloudUser} from '../../lib/cloud/config';
 
 const router = Router();
+
+router.use(async (_req, _res, next) => {
+    try {
+        await ensureRuntimeReady();
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
 
 router.get('/session', (req, res) => {
     const session = readSessionFromRequest(req);
@@ -72,6 +83,10 @@ router.get('/feishu/callback', async (req, res) => {
         }
 
         const user = await exchangeCodeForFeishuUser(code);
+        const configured = getConfiguredCloudUser(user.username);
+        if (!configured?.enabled) {
+            return res.status(403).json({error: '当前用户未在 cloud.config.json 中启用'});
+        }
         setSessionCookies(res, {
             username: user.username,
             role: 'user',

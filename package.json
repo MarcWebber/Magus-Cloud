@@ -12,7 +12,14 @@
     "restart": "npm run start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "ops:health": "node tests/ops/health-check.mjs",
+    "ops:gateway": "node tests/ops/gateway-check.mjs",
+    "ops:storage": "node tests/ops/storage-check.mjs",
+    "ops:backup": "node tests/ops/backup-check.mjs",
+    "ops:nodes": "node tests/ops/node-check.mjs",
+    "ops:user-export": "node tests/ops/user-export-check.mjs",
+    "ops:help": "node tests/ops/help.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
@@ -42,6 +49,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
+    "@types/pg": "^8.18.0",
     "antd": "^5.26.7",
     "archiver": "^7.0.1",
     "axios": "^1.12.2",
@@ -57,7 +65,10 @@
     "libreoffice": "^0.4.5",
     "lucide-react": "^0.532.0",
     "mammoth": "^1.10.0",
+    "marked": "^17.0.4",
     "multer": "^2.0.2",
+    "pg": "^8.20.0",
+    "pg-mem": "^3.0.14",
     "pinyin": "^4.0.0",
     "pptxjs": "^0.0.0",
     "react": "^19.1.0",
@@ -65,6 +76,7 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "^6.30.1",
     "sharp": "^0.34.3",
+    "tar": "^7.5.11",
     "uuid": "^11.1.0",
     "winston": "^3.17.0",
     "xlsx": "^0.18.5"

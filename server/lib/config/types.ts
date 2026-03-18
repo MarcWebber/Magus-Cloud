@@ -1,5 +1,6 @@
 export type SessionRole = 'user' | 'admin';
 export type SessionProvider = 'feishu' | 'admin' | 'legacy';
+export type SettingsFieldSource = 'service-config' | 'env';
 
 export interface SystemSettings {
     auth: {
@@ -12,6 +13,7 @@ export interface SystemSettings {
         enabled: boolean;
         appId: string;
         appSecret: string;
+        redirectUri: string;
         appBaseUrl: string;
         callbackBaseUrl: string;
     };
@@ -23,19 +25,41 @@ export interface SystemSettings {
         tunnelName: string;
         addr: string;
     };
-    storage: {
-        rootDir: string;
-        devRootDir: string;
-        quotaEnabled: boolean;
-        defaultUserQuotaGb: number;
-    };
     ui: {
         appName: string;
         supportUrl: string;
+        defaultLocale: 'zh-CN' | 'en-US';
     };
     metadata: {
         updatedAt: string;
         restartRequired: boolean;
+        configVersion: string;
+        source: 'env+service-config';
+    };
+}
+
+export interface SettingsFieldSources {
+    auth: Record<keyof SystemSettings['auth'], SettingsFieldSource>;
+    feishu: {
+        enabled: 'service-config';
+        appId: 'env';
+        appSecret: 'env';
+        redirectUri: 'env';
+        appBaseUrl: 'service-config';
+        callbackBaseUrl: 'service-config';
+    };
+    ngrok: {
+        enabled: 'service-config';
+        apiUrl: 'service-config';
+        authtoken: 'env';
+        domain: 'service-config';
+        tunnelName: 'service-config';
+        addr: 'service-config';
+    };
+    ui: {
+        appName: 'service-config';
+        supportUrl: 'service-config';
+        defaultLocale: 'service-config';
     };
 }
 

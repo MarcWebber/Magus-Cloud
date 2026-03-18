@@ -1,0 +1,19 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - img "Magus" [ref=e6]
+      - strong [ref=e8]: Magus Cloud
+    - button "打开用户帮助文档" [ref=e9] [cursor=pointer]:
+      - img "question-circle" [ref=e10]:
+        - img [ref=e11]
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - heading "让团队资料 更轻松地留在云端" [level=1] [ref=e16]:
+        - text: 让团队资料
+        - text: 更轻松地留在云端
+      - generic [ref=e17]: 为团队文件提供上传、预览、分享与整理能力，让常用资料像网盘一样更顺手、更清爽。
+      - button "去登录" [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]: 去登录
+    - region "首页主视觉" [ref=e20]:
+      - generic [ref=e21]:
+        - img "Magus Cloud 主视觉"

@@ -150,7 +150,7 @@ export function getAllFolderIds(nodes: FileNode[]): string[] {
 
 export function buildPathLabel(pathSegments: string[]) {
     if (pathSegments.length <= 1) {
-        return '根目录';
+        return '\u6839\u76ee\u5f55';
     }
 
     return pathSegments.slice(0, -1).join(' / ');

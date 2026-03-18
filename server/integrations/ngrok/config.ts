@@ -7,6 +7,7 @@ export function getNgrokConfigPath() {
 }
 
 export function syncNgrokConfig(settings: SystemSettings) {
+    fs.mkdirSync(path.dirname(getNgrokConfigPath()), {recursive: true});
     const lines = [
         `version: 2`,
         `authtoken: ${settings.ngrok.authtoken || ''}`,

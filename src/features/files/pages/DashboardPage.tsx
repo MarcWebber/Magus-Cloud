@@ -1,115 +1,128 @@
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {ReactNode, useEffect, useMemo, useRef, useState} from 'react';
 import {
+    AppstoreOutlined,
+    DeleteOutlined,
+    DownloadOutlined,
+    EyeOutlined,
+    FileImageOutlined,
+    FileTextOutlined,
+    FolderAddOutlined,
+    FolderFilled,
+    FolderOpenOutlined,
+    QuestionCircleOutlined,
+    HomeOutlined,
+    LinkOutlined,
+    PlaySquareOutlined,
+    ReloadOutlined,
+    SearchOutlined,
+    ShareAltOutlined,
+    UploadOutlined,
+} from '@ant-design/icons';
+import {
+    Badge,
     Breadcrumb,
     Button,
     Card,
     Empty,
     Input,
+    Modal,
     Popconfirm,
     Progress,
     Segmented,
+    Space,
     Statistic,
     Table,
     Tag,
-    Tree,
     message,
 } from 'antd';
-import type {DataNode} from 'antd/es/tree';
 import type {ColumnsType} from 'antd/es/table';
-import {
-    CaretDownOutlined,
-    CaretRightOutlined,
-    DeleteOutlined,
-    DownloadOutlined,
-    EyeOutlined,
-    FileOutlined,
-    FolderFilled,
-    FolderOpenOutlined,
-    LinkOutlined,
-    ReloadOutlined,
-    ShareAltOutlined,
-    UploadOutlined,
-} from '@ant-design/icons';
 import {apiClient} from '../../../lib/api/client';
+import {useHelpDrawer} from '../../../app/providers/HelpProvider';
+import {useI18n} from '../../../app/providers/I18nProvider';
+import {useSession} from '../../../app/providers/SessionProvider';
 import {ShareDialog} from '../components/ShareDialog';
 import {PreviewModal} from '../components/PreviewModal';
-import {useI18n} from '../../../app/providers/I18nProvider';
 import styles from './DashboardPage.module.css';
-import {
-    buildPathLabel,
-    doesPathExist,
-    FileNode,
-    flattenNodes,
-    formatBytes,
-    getAllFolderIds,
-    getNodesAtPath,
-    hydrateNodes,
-    parseSize,
-    RawFileNode,
-} from '../utils/fileDisplay';
+import {FileNode, RawFileNode, buildPathLabel, doesPathExist, flattenNodes, getNodesAtPath, hydrateNodes} from '../utils/fileDisplay';
+
+type QuotaPayload = {
+    enabled: boolean;
+    limitBytes: number | null;
+    usedBytes: number;
+    remainingBytes: number | null;
+    source: 'disabled' | 'default' | 'user';
+    usedLabel: string;
+    limitLabel: string | null;
+    remainingLabel: string | null;
+    percent: number | null;
+};
 
 type UsagePayload = {
-    usage: Array<{name: string; size: string}>;
+    totalCapacity: string;
     totalUsed: string;
-    totalFree: string;
+    allocatable: string;
+    nodes: Array<{id: string; baseUrl: string; storageMounted: boolean; databaseOk: boolean; lastHeartbeat: string}>;
+    recentBackup: null | {snapshotId: string};
+    storagePolicy?: {
+        quotaMode: 'hard' | 'oversell';
+        warningThresholdPercent: number;
+        autoExpandEnabled: boolean;
+        warningTriggered: boolean;
+    };
+    personal: {used: string; quota: QuotaPayload};
 };
 
 type ShareRecord = {
     shareId: string;
     fileName: string;
     type: 'file' | 'folder';
-    expireAt: number | null;
     accessCode: string;
-    createdAt: number;
     clickCount: number;
     downloadCount: number;
 };
 
-type QuotaPayload = {
-    enabled: boolean;
-    total: string | null;
-    remaining: string | null;
-    percent: number | null;
-};
+type TableRow = FileNode & {pathLabel: string};
+type PrimaryNav = 'home' | 'files' | 'shares' | 'recycle';
+type SidebarView = 'all' | 'image' | 'document' | 'video' | 'other' | 'recycle' | 'shares';
 
-type TreeNode = DataNode & {
-    fileNode?: FileNode;
-    pathSegments?: string[];
-};
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
+const DOCUMENT_EXTENSIONS = new Set(['txt', 'md', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'pdf', 'json']);
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'avi', 'mkv', 'webm']);
 
-type TableRow = FileNode & {
-    pathLabel: string;
-};
+const FILTERS: Array<{key: SidebarView; label: string; icon?: ReactNode}> = [
+    {key: 'all', label: '我的文件'},
+    {key: 'image', label: '图片', icon: <FileImageOutlined />},
+    {key: 'document', label: '文档', icon: <FileTextOutlined />},
+    {key: 'video', label: '视频', icon: <PlaySquareOutlined />},
+    {key: 'other', label: '其他', icon: <AppstoreOutlined />},
+    {key: 'recycle', label: '回收站'},
+    {key: 'shares', label: '分享记录'},
+];
 
-const ROOT_KEY = '__root__';
-const TEXT = {
-    file: '\u6587\u4ef6',
-    folder: '\u6587\u4ef6\u5939',
-    allFiles: '\u5168\u90e8\u6587\u4ef6',
-    other: '\u5176\u4ed6',
-    rootDir: '\u6839\u76ee\u5f55',
-    path: '\u8def\u5f84',
-    searchResults: '\u641c\u7d22\u7ed3\u679c',
-    currentFolder: '\u5f53\u524d\u76ee\u5f55',
-    item: '\u9879',
-    storageOverview: '\u5b58\u50a8\u6982\u89c8',
-    storageHint: '\u7528\u56fe\u8868\u5feb\u901f\u67e5\u770b\u4e2a\u4eba\u5360\u7528\u3001\u56e2\u961f\u603b\u91cf\u548c\u5269\u4f59\u7a7a\u95f4\u3002',
-    usageRanking: '\u7528\u91cf\u6392\u884c',
-    usageHint: '\u6309\u5df2\u5360\u7528\u7a7a\u95f4\u6392\u5e8f\uff0c\u4fbf\u4e8e\u5feb\u901f\u5b9a\u4f4d\u4e3b\u8981\u6765\u6e90\u3002',
-    fileTree: '\u6587\u4ef6\u6811',
-    treeHint: '\u70b9\u51fb\u6587\u4ef6\u5939\u5207\u6362\u76ee\u5f55\uff0c\u70b9\u51fb\u6587\u4ef6\u76f4\u63a5\u9884\u89c8\u3002',
-    searchPlaceholder: '\u68c0\u7d22\u6587\u4ef6\u6216\u6587\u4ef6\u5939',
-    noResults: '\u6ca1\u6709\u5339\u914d\u7684\u7ed3\u679c',
-    accessCode: '\u63d0\u53d6\u7801',
-    visits: '\u8bbf\u95ee',
-    downloads: '\u4e0b\u8f7d',
-    quotaRatio: '\u4e2a\u4eba\u914d\u989d\u5360\u6bd4',
-    quotaTotal: '\u4e2a\u4eba\u914d\u989d',
-    quotaRemaining: '\u5269\u4f59\u914d\u989d',
-    notConfigured: '\u672a\u8bbe\u7f6e',
-    collapse: '\u6536\u8d77',
-    expand: '\u5c55\u5f00',
-};
+function getFileExtension(name: string) {
+    return name.split('.').pop()?.toLowerCase() || '';
+}
+
+function matchesView(item: FileNode, view: SidebarView) {
+    if (view === 'all') {
+        return true;
+    }
+    if (view === 'shares' || view === 'recycle' || item.type === 'folder') {
+        return false;
+    }
+    const extension = getFileExtension(item.name);
+    if (view === 'image') return IMAGE_EXTENSIONS.has(extension);
+    if (view === 'document') return DOCUMENT_EXTENSIONS.has(extension);
+    if (view === 'video') return VIDEO_EXTENSIONS.has(extension);
+    return !IMAGE_EXTENSIONS.has(extension) && !DOCUMENT_EXTENSIONS.has(extension) && !VIDEO_EXTENSIONS.has(extension);
+}
+
+function compareNodes(left: FileNode, right: FileNode) {
+    if (left.type !== right.type) {
+        return left.type === 'folder' ? -1 : 1;
+    }
+    return left.name.localeCompare(right.name, 'zh-CN');
+}
 
 function download(name: string, type: 'file' | 'folder') {
     const anchor = document.createElement('a');
@@ -119,82 +132,24 @@ function download(name: string, type: 'file' | 'folder') {
     anchor.click();
 }
 
-function compareName(left: string, right: string) {
-    return left.localeCompare(right, 'zh-CN');
-}
-
-function compareNodes(left: FileNode, right: FileNode, key: 'name' | 'size' | 'mtime') {
-    if (left.type !== right.type) {
-        return left.type === 'folder' ? -1 : 1;
-    }
-
-    switch (key) {
-        case 'size':
-            return left.sizeBytes - right.sizeBytes;
-        case 'mtime':
-            return left.modifiedAt - right.modifiedAt;
-        case 'name':
-        default:
-            return compareName(left.name, right.name);
-    }
-}
-
-function folderSummary(items: FileNode[]) {
-    const folders = items.filter((item) => item.type === 'folder').length;
-    const files = items.length - folders;
-    return `${TEXT.file} ${files} · ${TEXT.folder} ${folders}`;
-}
-
-function mapTreeNode(node: FileNode): TreeNode {
-    return {
-        key: node.id,
-        pathSegments: node.pathSegments,
-        fileNode: node,
-        isLeaf: node.type === 'file',
-        title: (
-            <span className={styles.treeLabel}>
-                {node.type === 'folder' ? <FolderFilled /> : <FileOutlined />}
-                <span className={styles.treeLabelText}>{node.name}</span>
-            </span>
-        ),
-        children: node.children?.map(mapTreeNode),
-    };
-}
-
-function buildTreeData(nodes: FileNode[]): TreeNode[] {
-    return [
-        {
-            key: ROOT_KEY,
-            selectable: true,
-            title: <span className={styles.treeRootLabel}>{TEXT.allFiles}</span>,
-            icon: <FolderFilled />,
-            children: nodes.map(mapTreeNode),
-        },
-    ];
-}
-
 export default function DashboardPage() {
     const {t, locale} = useI18n();
+    const {session} = useSession();
+    const {openHelp} = useHelpDrawer();
     const [files, setFiles] = useState<FileNode[]>([]);
     const [usage, setUsage] = useState<UsagePayload | null>(null);
-    const [quota, setQuota] = useState<QuotaPayload | null>(null);
-    const [personalUsage, setPersonalUsage] = useState('0 B');
     const [shares, setShares] = useState<ShareRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [primaryNav, setPrimaryNav] = useState<PrimaryNav>('home');
     const [tab, setTab] = useState<'files' | 'shares'>('files');
+    const [view, setView] = useState<SidebarView>('all');
     const [currentPath, setCurrentPath] = useState<string[]>([]);
     const [query, setQuery] = useState('');
     const [uploadProgress, setUploadProgress] = useState<number | null>(null);
     const [shareTarget, setShareTarget] = useState<FileNode | null>(null);
     const [previewTarget, setPreviewTarget] = useState<FileNode | null>(null);
-    const [expandedKeys, setExpandedKeys] = useState<string[]>([ROOT_KEY]);
-    const [collapsedPanels, setCollapsedPanels] = useState<Record<string, boolean>>({
-        overview: false,
-        ranking: false,
-        tree: false,
-        toolbar: false,
-        content: false,
-    });
+    const [folderModalOpen, setFolderModalOpen] = useState(false);
+    const [newFolderName, setNewFolderName] = useState('');
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const folderInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -202,14 +157,11 @@ export default function DashboardPage() {
         setLoading(true);
         try {
             const [filePayload, usagePayload, sharePayload] = await Promise.all([
-                apiClient.get<{files: RawFileNode[]; usage: string; quota?: QuotaPayload}>('/api/files'),
+                apiClient.get<{files: RawFileNode[]}>('/api/files'),
                 apiClient.get<UsagePayload>('/api/usage'),
                 apiClient.get<ShareRecord[]>('/api/share/list'),
             ]);
-
             setFiles(hydrateNodes(filePayload.files || []));
-            setPersonalUsage(formatBytes(parseSize(filePayload.usage)));
-            setQuota(filePayload.quota || null);
             setUsage(usagePayload);
             setShares(sharePayload);
         } catch (error) {
@@ -230,114 +182,62 @@ export default function DashboardPage() {
     }, [files, currentPath]);
 
     useEffect(() => {
-        const folderIds = getAllFolderIds(files);
-        if (query.trim()) {
-            setExpandedKeys([ROOT_KEY, ...folderIds]);
+        if (primaryNav === 'shares') {
+            setTab('shares');
+            setView('shares');
+            setCurrentPath([]);
             return;
         }
-
-        setExpandedKeys((previous) => {
-            const keep = previous.filter((key) => key === ROOT_KEY || folderIds.includes(key));
-            return keep.length ? keep : [ROOT_KEY, ...folderIds];
-        });
-    }, [files, query]);
-
-    const currentItems = useMemo(() => getNodesAtPath(files, currentPath), [files, currentPath]);
-
-    const tableItems = useMemo<TableRow[]>(() => {
-        const search = query.trim().toLowerCase();
-        const source = search
-            ? flattenNodes(files).filter((item) => item.name.toLowerCase().includes(search))
-            : currentItems;
-
-        return source.map((item) => ({
-            ...item,
-            pathLabel: buildPathLabel(item.pathSegments),
-        }));
-    }, [files, currentItems, query]);
-
-    const topUsers = useMemo(() => {
-        return [...(usage?.usage || [])]
-            .map((item) => {
-                const sizeBytes = parseSize(item.size);
-                return {
-                    ...item,
-                    sizeBytes,
-                    sizeLabel: formatBytes(sizeBytes),
-                };
-            })
-            .sort((left, right) => right.sizeBytes - left.sizeBytes)
-            .slice(0, 6);
-    }, [usage]);
-
-    const treeData = useMemo(() => buildTreeData(files), [files]);
-
-    const storageSegments = useMemo(() => {
-        const rootItems = [...files]
-            .filter((item) => item.sizeBytes > 0)
-            .sort((left, right) => right.sizeBytes - left.sizeBytes);
-        const topItems = rootItems.slice(0, 5);
-        const remainingBytes = rootItems.slice(5).reduce((sum, item) => sum + item.sizeBytes, 0);
-
-        const segments = topItems.map((item) => ({
-            name: item.name,
-            sizeBytes: item.sizeBytes,
-            sizeLabel: item.sizeLabel,
-        }));
-
-        if (remainingBytes > 0) {
-            segments.push({
-                name: TEXT.other,
-                sizeBytes: remainingBytes,
-                sizeLabel: formatBytes(remainingBytes),
-            });
+        if (primaryNav === 'recycle') {
+            setTab('files');
+            setView('recycle');
+            setCurrentPath([]);
+            return;
         }
+        setTab('files');
+        if (view === 'shares' || view === 'recycle') {
+            setView('all');
+        }
+    }, [primaryNav, view]);
 
-        return segments;
-    }, [files]);
+    const rootFolders = useMemo(() => files.filter((item) => item.type === 'folder').slice(0, 8), [files]);
+    const currentItems = useMemo(() => getNodesAtPath(files, currentPath), [files, currentPath]);
+    const filteredCurrentItems = useMemo(() => {
+        const base = view === 'all' ? currentItems : currentItems.filter((item) => matchesView(item, view));
+        if (!query.trim()) {
+            return [...base].sort(compareNodes);
+        }
+        return flattenNodes(base).filter((item) => item.name.toLowerCase().includes(query.trim().toLowerCase())).sort(compareNodes);
+    }, [currentItems, query, view]);
+    const tableItems = useMemo<TableRow[]>(() => filteredCurrentItems.map((item) => ({...item, pathLabel: buildPathLabel(item.pathSegments)})), [filteredCurrentItems]);
 
-    const totalUsedBytes = parseSize(usage?.totalUsed);
-    const totalFreeBytes = parseSize(usage?.totalFree);
-    const totalCapacityBytes = totalUsedBytes + totalFreeBytes;
-    const personalUsageBytes = parseSize(personalUsage);
-    const currentPathLabel = currentPath.length ? currentPath.join(' / ') : TEXT.rootDir;
-    const personalUsagePercent = quota?.enabled ? quota.percent ?? 0 : null;
-
-    const togglePanel = (key: string) => {
-        setCollapsedPanels((previous) => ({
-            ...previous,
-            [key]: !previous[key],
-        }));
+    const createFolder = async () => {
+        if (!newFolderName.trim()) {
+            message.error('请输入文件夹名称');
+            return;
+        }
+        try {
+            await apiClient.post('/api/create-folder', {folderName: newFolderName.trim(), parentPath: currentPath});
+            setFolderModalOpen(false);
+            setNewFolderName('');
+            message.success('文件夹已创建');
+            await refreshAll();
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : '创建文件夹失败');
+        }
     };
 
-    const panelToggle = (key: string) => (
-        <Button
-            type="text"
-            size="small"
-            icon={collapsedPanels[key] ? <CaretRightOutlined /> : <CaretDownOutlined />}
-            onClick={() => togglePanel(key)}
-        >
-            {collapsedPanels[key] ? TEXT.expand : TEXT.collapse}
-        </Button>
-    );
-
     const uploadSelected = async (event: React.ChangeEvent<HTMLInputElement>, folder = false) => {
-        if (!event.target.files?.length) {
-            return;
-        }
-
+        if (!event.target.files?.length) return;
         const formData = new FormData();
         try {
             if (folder) {
-                Array.from(event.target.files).forEach((file) => {
-                    formData.append('folderFiles', new File([file], file.webkitRelativePath));
-                });
+                Array.from(event.target.files).forEach((file) => formData.append('folderFiles', new File([file], file.webkitRelativePath)));
                 await apiClient.upload('/api/upload-folder', formData, setUploadProgress);
             } else {
                 formData.append('file', event.target.files[0]);
                 await apiClient.upload('/api/upload', formData, setUploadProgress);
             }
-
             message.success(t('files.uploadSuccess'));
             await refreshAll();
         } catch (error) {
@@ -364,424 +264,223 @@ export default function DashboardPage() {
         {
             title: t('files.tableName'),
             dataIndex: 'name',
-            sorter: (left, right) => compareNodes(left, right, 'name'),
-            defaultSortOrder: 'ascend',
             render: (_, item) => (
                 <div className={styles.nameCell}>
-                    {item.type === 'folder' ? <FolderOpenOutlined /> : <FileOutlined />}
-                    <Button
-                        type="link"
-                        className={styles.tableNameButton}
-                        onClick={() => item.type === 'folder'
-                            ? setCurrentPath(item.pathSegments)
-                            : setPreviewTarget(item)}
-                    >
-                        <span className={styles.nameText}>{item.name}</span>
+                    <span className={styles.nameIcon}>{item.type === 'folder' ? <FolderOpenOutlined /> : <AppstoreOutlined />}</span>
+                    <Button type="link" className={styles.nameButton} onClick={() => item.type === 'folder' ? setCurrentPath(item.pathSegments) : setPreviewTarget(item)}>
+                        {item.name}
                     </Button>
+                    {query.trim() && item.pathLabel !== '根目录' ? <span className={styles.pathTag}>{item.pathLabel}</span> : null}
                 </div>
             ),
         },
+        {title: t('files.tableSize'), dataIndex: 'sizeLabel', width: 140},
+        {title: t('files.tableModified'), dataIndex: 'mtime', width: 220, render: (_, item) => item.mtime ? new Date(item.mtime).toLocaleString(locale) : '-'},
         {
-            title: t('files.tableSize'),
-            dataIndex: 'sizeLabel',
-            sorter: (left, right) => compareNodes(left, right, 'size'),
-        },
-        {
-            title: t('files.tableModified'),
-            dataIndex: 'mtime',
-            sorter: (left, right) => compareNodes(left, right, 'mtime'),
-            render: (_, item) => item.mtime ? new Date(item.mtime).toLocaleString(locale) : '-',
+            title: t('files.tableActions'),
+            key: 'actions',
+            width: 190,
+            render: (_, item) => (
+                <div className={styles.tableActions}>
+                    {item.type === 'file' ? <Button type="text" icon={<EyeOutlined />} onClick={() => setPreviewTarget(item)} /> : null}
+                    <Button type="text" icon={<DownloadOutlined />} onClick={() => download(item.id, item.type)} />
+                    <Button type="text" icon={<ShareAltOutlined />} onClick={() => setShareTarget(item)} />
+                    <Popconfirm title={t('files.deleteConfirm')} onConfirm={() => void removeItem(item)}>
+                        <Button type="text" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                </div>
+            ),
         },
     ];
 
-    if (query.trim()) {
-        columns.push({
-            title: TEXT.path,
-            dataIndex: 'pathLabel',
-            render: (value) => <span className={styles.tablePath}>{value}</span>,
-        });
-    }
-
-    columns.push({
-        title: t('files.tableActions'),
-        key: 'actions',
-        render: (_, item) => (
-            <div className={styles.tableActions}>
-                {item.type === 'file' && (
-                    <Button icon={<EyeOutlined />} onClick={() => setPreviewTarget(item)}>
-                        {t('files.preview')}
-                    </Button>
-                )}
-                <Button icon={<DownloadOutlined />} onClick={() => download(item.id, item.type)}>
-                    {t('files.download')}
-                </Button>
-                <Button icon={<ShareAltOutlined />} onClick={() => setShareTarget(item)}>
-                    {t('files.share')}
-                </Button>
-                <Popconfirm title={t('files.deleteConfirm')} onConfirm={() => void removeItem(item)}>
-                    <Button danger icon={<DeleteOutlined />} />
-                </Popconfirm>
-            </div>
-        ),
-    });
+    const capacityPercent = usage?.personal.quota.percent ?? 0;
+    const warningText = usage?.storagePolicy?.warningTriggered
+        ? `总容量使用率已超过 ${usage.storagePolicy.warningThresholdPercent}% 告警阈值，请尽快安排清理或扩容评估。`
+        : '当前集群容量状态平稳，上传、分享和预览链路可以继续正常使用。';
 
     return (
         <div className={styles.dashboardPage}>
-            <div className={styles.statsGrid}>
-                <Card className={`glass-card section-card ${styles.statCard}`} loading={loading}>
-                    <Statistic title={t('files.personalUsage')} value={personalUsage} />
-                </Card>
-                <Card className={`glass-card section-card ${styles.statCard}`} loading={loading}>
-                    <Statistic title={t('files.totalUsed')} value={formatBytes(totalUsedBytes)} />
-                </Card>
-                <Card className={`glass-card section-card ${styles.statCard}`} loading={loading}>
-                    <Statistic title={t('files.totalFree')} value={formatBytes(totalFreeBytes)} />
-                </Card>
-                <Card className={`glass-card section-card ${styles.statCard}`} loading={loading}>
-                    <Statistic
-                        title={TEXT.quotaRatio}
-                        value={personalUsagePercent ?? TEXT.notConfigured}
-                        suffix={personalUsagePercent === null ? undefined : '%'}
-                    />
-                </Card>
-                <Card className={`glass-card section-card ${styles.statCard}`} loading={loading}>
-                    <Statistic
-                        title={query.trim() ? TEXT.searchResults : TEXT.currentFolder}
-                        value={query.trim() ? tableItems.length : currentItems.length}
-                        suffix={TEXT.item}
-                    />
-                </Card>
-            </div>
+            <div className={styles.shellGrid}>
+                <aside className={styles.iconRail}>
+                    <div className={styles.iconRailTop}>
+                        <button type="button" className={`${styles.railButton} ${primaryNav === 'home' ? styles.railButtonActive : ''}`} onClick={() => setPrimaryNav('home')}><HomeOutlined /><span>首页</span></button>
+                        <button type="button" className={`${styles.railButton} ${primaryNav === 'files' ? styles.railButtonActive : ''}`} onClick={() => setPrimaryNav('files')}><FolderFilled /><span>文件</span></button>
+                        <button type="button" className={`${styles.railButton} ${primaryNav === 'shares' ? styles.railButtonActive : ''}`} onClick={() => setPrimaryNav('shares')}><ShareAltOutlined /><span>分享</span></button>
+                        <button type="button" className={`${styles.railButton} ${primaryNav === 'recycle' ? styles.railButtonActive : ''}`} onClick={() => setPrimaryNav('recycle')}><DeleteOutlined /><span>回收站</span></button>
+                    </div>
+                    <div className={styles.iconRailBottom}>
+                        <button type="button" className={styles.railButton} onClick={() => openHelp('user')}><QuestionCircleOutlined /><span>帮助</span></button>
+                    </div>
+                </aside>
 
-            <div className={styles.usageGrid}>
-                <Card className="glass-card section-card" loading={loading} extra={panelToggle('overview')}>
-                    {!collapsedPanels.overview && (
-                        <>
-                    <h3 className={styles.sectionTitle}>{TEXT.storageOverview}</h3>
-                    <p className={styles.sectionHint}>{TEXT.storageHint}</p>
-                    <div className={styles.storageLegend}>
-                        <div className={styles.storageLegendItem}>
-                            <div className={styles.storageLegendLabel}>
-                                <strong>{t('files.personalUsage')}</strong>
-                                <span>{personalUsage}</span>
-                            </div>
-                            <div className={styles.storageBar}>
-                                <div
-                                    className={styles.storageBarFill}
-                                    style={{
-                                        width: `${totalUsedBytes > 0 ? Math.min((personalUsageBytes / totalUsedBytes) * 100, 100) : 0}%`,
-                                        background: 'linear-gradient(90deg, #2563eb, #38bdf8)',
+                <aside className={styles.secondaryRail}>
+                    <div className={styles.secondaryHeader}>
+                        <strong>我的空间</strong>
+                        <span>常用分类、快捷访问和容量状态都集中在这里。</span>
+                    </div>
+
+                    <div className={styles.navSection}>
+                        {FILTERS.map((item) => {
+                            const active = item.key === 'shares' ? tab === 'shares' : item.key === 'recycle' ? primaryNav === 'recycle' : view === item.key;
+                            return (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    className={`${styles.navButton} ${active ? styles.navButtonActive : ''}`}
+                                    onClick={() => {
+                                        if (item.key === 'shares') {
+                                            setPrimaryNav('shares');
+                                            return;
+                                        }
+                                        if (item.key === 'recycle') {
+                                            setPrimaryNav('recycle');
+                                            return;
+                                        }
+                                        setPrimaryNav('files');
+                                        setView(item.key);
+                                        if (item.key === 'all') {
+                                            setCurrentPath([]);
+                                        }
                                     }}
-                                />
+                                >
+                                    <span>{item.icon} {item.label}</span>
+                                    {item.key === 'shares' && shares.length > 0 ? <Badge count={shares.length} /> : item.key === 'recycle' ? <Tag bordered={false}>预留</Tag> : null}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className={styles.navSection}>
+                        <div className={styles.sectionLabel}>快捷访问</div>
+                        {rootFolders.length === 0 ? <div className={styles.emptyTip}>上传后，常用根目录会出现在这里。</div> : rootFolders.map((item) => (
+                            <button key={item.id} type="button" className={styles.quickButton} onClick={() => {setPrimaryNav('files'); setCurrentPath(item.pathSegments); setView('all');}}>
+                                <FolderFilled />
+                                <span>{item.name}</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className={styles.storagePanel}>
+                        <div className={styles.storagePanelTitle}>个人配额</div>
+                        <div className={styles.storagePanelValue}>{usage?.personal.used || '0 B'}</div>
+                        <div className={styles.storagePanelHint}>已用 / {usage?.personal.quota.limitLabel || '未设置配额'}</div>
+                        <Progress percent={capacityPercent} showInfo={false} strokeColor="#1677ff" />
+                    </div>
+                </aside>
+
+                <main className={styles.mainPanel}>
+                    <div className={styles.heroBar}>
+                        <div className={styles.heroBarLeft}>
+                            <div>
+                                <h2>文件工作台</h2>
+                                <p>像使用网盘一样浏览、整理、分享和预览你的资料。</p>
                             </div>
+                            <Space wrap>
+                                <Button type="primary" icon={<UploadOutlined />} onClick={() => fileInputRef.current?.click()}>{t('files.uploadFile')}</Button>
+                                <Button icon={<UploadOutlined />} onClick={() => folderInputRef.current?.click()}>{t('files.uploadFolder')}</Button>
+                                <Button icon={<FolderAddOutlined />} onClick={() => setFolderModalOpen(true)}>新建文件夹</Button>
+                                <Button icon={<ReloadOutlined />} onClick={() => void refreshAll()}>{t('files.refresh')}</Button>
+                            </Space>
                         </div>
-                        <div className={styles.storageLegendItem}>
-                            <div className={styles.storageLegendLabel}>
-                                <strong>{t('files.totalUsed')}</strong>
-                                <span>{formatBytes(totalUsedBytes)}</span>
-                            </div>
-                            <Progress
-                                percent={totalCapacityBytes > 0 ? Number(((totalUsedBytes / totalCapacityBytes) * 100).toFixed(1)) : 0}
-                                showInfo={false}
-                                strokeColor="#1d4ed8"
+
+                        <div className={styles.heroBarRight}>
+                            <Input allowClear prefix={<SearchOutlined />} className={styles.searchBox} placeholder="检索文件或文件夹" value={query} onChange={(event) => setQuery(event.target.value)} />
+                            <Segmented
+                                value={tab}
+                                onChange={(value) => {
+                                    const nextTab = value as 'files' | 'shares';
+                                    setTab(nextTab);
+                                    setPrimaryNav(nextTab === 'shares' ? 'shares' : 'files');
+                                    if (nextTab === 'files' && view === 'shares') setView('all');
+                                }}
+                                options={[{label: t('files.tabFiles'), value: 'files'}, {label: t('files.tabShares'), value: 'shares'}]}
                             />
                         </div>
-                        <div className={styles.storageLegendItem}>
-                            <div className={styles.storageLegendLabel}>
-                                <strong>{t('files.totalFree')}</strong>
-                                <span>{formatBytes(totalFreeBytes)}</span>
-                            </div>
-                            <Progress
-                                percent={totalCapacityBytes > 0 ? Number(((totalFreeBytes / totalCapacityBytes) * 100).toFixed(1)) : 0}
-                                showInfo={false}
-                                strokeColor="#10b981"
-                            />
-                        </div>
-                        {quota?.enabled && (
-                            <>
-                                <div className={styles.storageLegendItem}>
-                                    <div className={styles.storageLegendLabel}>
-                                        <strong>{TEXT.quotaTotal}</strong>
-                                        <span>{quota.total}</span>
-                                    </div>
-                                    <Progress percent={personalUsagePercent ?? 0} showInfo={false} strokeColor="#f59e0b" />
-                                </div>
-                                <div className={styles.storageLegendItem}>
-                                    <div className={styles.storageLegendLabel}>
-                                        <strong>{TEXT.quotaRemaining}</strong>
-                                        <span>{quota.remaining}</span>
-                                    </div>
-                                </div>
-                            </>
-                        )}
                     </div>
-                    {storageSegments.length > 0 && (
-                        <div className={styles.segmentList}>
-                            {storageSegments.map((item) => (
-                                <div key={item.name} className={styles.segmentItem}>
-                                    <div className={styles.segmentMeta}>
-                                        <strong>{item.name}</strong>
-                                        <span>{item.sizeLabel}</span>
-                                    </div>
-                                    <div className={styles.storageBar}>
-                                        <div
-                                            className={styles.storageBarFill}
-                                            style={{
-                                                width: `${storageSegments[0]?.sizeBytes ? (item.sizeBytes / storageSegments[0].sizeBytes) * 100 : 0}%`,
-                                                background: 'linear-gradient(90deg, #0f766e, #2dd4bf)',
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                        </>
-                    )}
-                </Card>
 
-                <Card className="glass-card section-card" loading={loading} extra={panelToggle('ranking')}>
-                    {!collapsedPanels.ranking && (
-                        <>
-                    <h3 className={styles.sectionTitle}>{TEXT.usageRanking}</h3>
-                    <p className={styles.sectionHint}>{TEXT.usageHint}</p>
-                    {topUsers.length === 0 ? (
-                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('files.noTopUsers')} />
-                    ) : (
-                        <div className={styles.segmentList}>
-                            {topUsers.map((item) => (
-                                <div key={item.name} className={styles.segmentItem}>
-                                    <div className={styles.segmentMeta}>
-                                        <strong>{item.name}</strong>
-                                        <span>{item.sizeLabel}</span>
-                                    </div>
-                                    <div className={styles.storageBar}>
-                                        <div
-                                            className={styles.storageBarFill}
-                                            style={{
-                                                width: `${topUsers[0]?.sizeBytes ? (item.sizeBytes / topUsers[0].sizeBytes) * 100 : 0}%`,
-                                                background: 'linear-gradient(90deg, #7c3aed, #c084fc)',
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                        </>
-                    )}
-                </Card>
-            </div>
+                    {uploadProgress !== null ? <div className={styles.progressWrap}><Progress percent={uploadProgress} /></div> : null}
 
-            <div className={styles.workspaceGrid}>
-                <Card className={`glass-card section-card ${styles.treeCard}`} loading={loading} extra={panelToggle('tree')}>
-                    {!collapsedPanels.tree && (
-                        <>
-                    <div className={styles.treeHeader}>
-                        <h3 className={styles.sectionTitle}>{TEXT.fileTree}</h3>
-                        <p className={styles.sectionHint}>{TEXT.treeHint}</p>
+                    <div className={styles.statsRow}>
+                        <Card className={`glass-card ${styles.statCard}`} loading={loading}><Statistic title={t('files.personalUsage')} value={usage?.personal.used || '0 B'} /></Card>
+                        <Card className={`glass-card ${styles.statCard}`} loading={loading}><Statistic title="个人配额" value={usage?.personal.quota.limitLabel || '未设置'} /></Card>
+                        <Card className={`glass-card ${styles.statCard}`} loading={loading}><Statistic title={t('files.totalUsed')} value={usage?.totalUsed || '0 B'} /></Card>
+                        <Card className={`glass-card ${styles.statCard}`} loading={loading}><Statistic title="可分配空间" value={usage?.allocatable || '0 B'} /></Card>
                     </div>
-                    <div className={styles.treeWrap}>
-                        <Tree
-                            showIcon
-                            blockNode
-                            selectedKeys={[currentPath.join('/') || ROOT_KEY]}
-                            expandedKeys={expandedKeys}
-                            onExpand={(keys) => setExpandedKeys(keys as string[])}
-                            treeData={treeData}
-                            onSelect={(_, info) => {
-                                const selected = info.node as TreeNode;
-                                if (selected.key === ROOT_KEY) {
-                                    setCurrentPath([]);
-                                    return;
-                                }
 
-                                if (selected.fileNode?.type === 'folder') {
-                                    setCurrentPath(selected.pathSegments || []);
-                                    return;
-                                }
-
-                                if (selected.fileNode) {
-                                    setPreviewTarget(selected.fileNode);
-                                }
-                            }}
-                        />
+                    <div className={styles.noticeRow}>
+                        <Card className={`glass-card ${styles.noticeCard}`}>
+                            <div className={styles.noticeHead}><strong>容量与策略</strong><span>{usage?.storagePolicy?.quotaMode === 'oversell' ? '超卖预留模式' : '硬限制模式'}</span></div>
+                            <Progress percent={capacityPercent} strokeColor="#1677ff" format={() => usage?.personal.quota.remainingLabel || '未设置'} />
+                            <div className={styles.noticeText}>当前仅展示策略字段，上传限制仍按现有硬限制逻辑执行。</div>
+                        </Card>
+                        <Card className={`glass-card ${styles.noticeCard}`}>
+                            <div className={styles.noticeHead}><strong>集群与告警</strong><span>{session?.user?.role === 'admin' ? `${usage?.nodes.length || 0} 个在线节点视图` : '状态概览'}</span></div>
+                            <div className={styles.noticeText}>{warningText}</div>
+                            {usage?.recentBackup ? <Tag color="blue">最近备份 {usage.recentBackup.snapshotId}</Tag> : null}
+                        </Card>
                     </div>
-                        </>
-                    )}
-                </Card>
 
-                <div className="page-grid">
-                    <Card className={`glass-card section-card ${styles.toolbarCard}`} extra={panelToggle('toolbar')}>
-                        {!collapsedPanels.toolbar && (
-                            <>
-                        <div className={styles.toolbarRow}>
-                            <div className={styles.toolbarActions}>
-                                <Segmented
-                                    value={tab}
-                                    onChange={(value) => setTab(value as 'files' | 'shares')}
-                                    options={[
-                                        {label: t('files.tabFiles'), value: 'files'},
-                                        {label: t('files.tabShares'), value: 'shares'},
-                                    ]}
-                                />
-                                <Button type="primary" icon={<UploadOutlined />} onClick={() => fileInputRef.current?.click()}>
-                                    {t('files.uploadFile')}
-                                </Button>
-                                <Button onClick={() => folderInputRef.current?.click()}>
-                                    {t('files.uploadFolder')}
-                                </Button>
-                                <Button icon={<ReloadOutlined />} onClick={() => void refreshAll()}>
-                                    {t('files.refresh')}
-                                </Button>
-                            </div>
-                            <Input
-                                allowClear
-                                className={styles.searchBox}
-                                placeholder={TEXT.searchPlaceholder}
-                                value={query}
-                                onChange={(event) => setQuery(event.target.value)}
-                            />
-                        </div>
-
-                        <input ref={fileInputRef} hidden type="file" onChange={(event) => void uploadSelected(event)} />
-                        <input
-                            ref={(node) => {
-                                folderInputRef.current = node;
-                                if (node) {
-                                    node.setAttribute('webkitdirectory', '');
-                                }
-                            }}
-                            hidden
-                            type="file"
-                            onChange={(event) => void uploadSelected(event, true)}
-                        />
-
-                        {uploadProgress !== null && (
-                            <div className={styles.progressWrap}>
-                                <Progress percent={uploadProgress} />
-                            </div>
-                        )}
-                            </>
-                        )}
-                    </Card>
-
-                    {tab === 'files' ? (
-                        <Card className={`glass-card section-card ${styles.contentCard}`} loading={loading} extra={panelToggle('content')}>
-                            {!collapsedPanels.content && (
-                                <>
+                    {primaryNav === 'recycle' ? (
+                        <Card className={`glass-card ${styles.contentCard}`}>
+                            <Empty description="回收站入口已预留。本轮删除仍为直接删除，不进入回收站。" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                        </Card>
+                    ) : tab === 'files' ? (
+                        <Card className={`glass-card ${styles.contentCard}`} loading={loading}>
                             <div className={styles.contentHeader}>
-                                <div className={styles.breadcrumbWrap}>
-                                    <Breadcrumb
-                                        items={[
-                                            {
-                                                title: (
-                                                    <Button type="link" className={styles.linkButton} onClick={() => setCurrentPath([])}>
-                                                        {t('files.rootBreadcrumb')}
-                                                    </Button>
-                                                ),
-                                            },
-                                            ...currentPath.map((segment, index) => ({
-                                                title: (
-                                                    <Button
-                                                        type="link"
-                                                        className={styles.linkButton}
-                                                        onClick={() => setCurrentPath(currentPath.slice(0, index + 1))}
-                                                    >
-                                                        {segment}
-                                                    </Button>
-                                                ),
-                                            })),
-                                        ]}
-                                    />
-                                    <div className={styles.folderMeta}>
-                                        {query.trim()
-                                            ? `\u5171\u627e\u5230 ${tableItems.length} ${TEXT.item}`
-                                            : `${currentPathLabel} · ${folderSummary(currentItems)}`}
-                                    </div>
+                                <div>
+                                    <Breadcrumb items={[
+                                        {title: <Button type="link" onClick={() => setCurrentPath([])} className={styles.breadcrumbButton}>{t('files.rootBreadcrumb')}</Button>},
+                                        ...currentPath.map((segment, index) => ({
+                                            title: <Button type="link" className={styles.breadcrumbButton} onClick={() => setCurrentPath(currentPath.slice(0, index + 1))}>{segment}</Button>,
+                                        })),
+                                    ]} />
+                                    <div className={styles.pathMeta}>{query.trim() ? `共找到 ${tableItems.length} 条匹配结果` : `当前位置：${currentPath.length ? currentPath.join(' / ') : '根目录'}`}</div>
                                 </div>
-                                {!query.trim() && <Tag color="blue">{`\u76ee\u5f55\u5185 ${currentItems.length} ${TEXT.item}`}</Tag>}
+                                <Tag color="blue">{tableItems.length} 项</Tag>
                             </div>
-
-                            <Table
-                                rowKey="id"
-                                className={styles.dashboardTable}
-                                columns={columns}
-                                dataSource={tableItems}
-                                pagination={{pageSize: 12, showSizeChanger: false}}
-                                locale={{emptyText: <Empty description={query.trim() ? TEXT.noResults : t('files.emptyFolder')} />}}
-                            />
-                                </>
-                            )}
+                            <Table rowKey="id" className={styles.fileTable} columns={columns} dataSource={tableItems} pagination={{pageSize: 12, showSizeChanger: false}} locale={{emptyText: <Empty description={query.trim() ? '没有匹配结果' : t('files.emptyFolder')} />}} />
                         </Card>
                     ) : (
-                        <Card className={`glass-card section-card ${styles.contentCard}`} loading={loading} extra={panelToggle('content')}>
-                            {!collapsedPanels.content && (
-                                <>
+                        <div className={styles.shareGrid}>
                             {shares.length === 0 ? (
-                                <Empty description={t('files.emptyShares')} />
-                            ) : (
-                                <div className={styles.shareList}>
-                                    {shares.map((share) => {
-                                        const smartUrl = `${window.location.origin}/s/${share.shareId}${share.accessCode ? `?code=${share.accessCode}` : ''}`;
-                                        return (
-                                            <Card key={share.shareId} className={styles.shareCard}>
-                                                <div className={styles.shareHeader}>
-                                                    <div className={styles.shareMeta}>
-                                                        <strong>{share.fileName}</strong>
-                                                        <Tag>{t(`files.fileType.${share.type}`)}</Tag>
-                                                        <Tag color="blue">{share.shareId}</Tag>
-                                                        {share.accessCode && <Tag color="gold">{`${TEXT.accessCode} ${share.accessCode}`}</Tag>}
-                                                    </div>
-                                                    <div className={styles.shareStats}>
-                                                        <span>{`${TEXT.visits} ${share.clickCount}`}</span>
-                                                        <span>{`${TEXT.downloads} ${share.downloadCount}`}</span>
-                                                    </div>
+                                <Card className={`glass-card ${styles.contentCard}`}><Empty description={t('files.emptyShares')} /></Card>
+                            ) : shares.map((share) => {
+                                const smartUrl = `${window.location.origin}/s/${share.shareId}${share.accessCode ? `?code=${share.accessCode}` : ''}`;
+                                return (
+                                    <Card key={share.shareId} className={`glass-card ${styles.shareCard}`}>
+                                        <div className={styles.shareHeader}>
+                                            <div>
+                                                <strong>{share.fileName}</strong>
+                                                <div className={styles.shareMeta}>
+                                                    <Tag>{t(`files.fileType.${share.type}`)}</Tag>
+                                                    <Tag color="blue">{share.shareId}</Tag>
+                                                    {share.accessCode ? <Tag color="gold">提取码 {share.accessCode}</Tag> : null}
                                                 </div>
-                                                <p className={styles.shareUrl}>{smartUrl}</p>
-                                                <div className={styles.shareActions}>
-                                                    <Button
-                                                        icon={<LinkOutlined />}
-                                                        onClick={async () => {
-                                                            await navigator.clipboard.writeText(smartUrl);
-                                                            message.success(t('files.copySuccess'));
-                                                        }}
-                                                    >
-                                                        {t('files.copyLink')}
-                                                    </Button>
-                                                    <Popconfirm title={t('files.revokeConfirm')} onConfirm={() => void revokeShare(share.shareId)}>
-                                                        <Button danger icon={<DeleteOutlined />}>{t('files.revoke')}</Button>
-                                                    </Popconfirm>
-                                                </div>
-                                            </Card>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                                </>
-                            )}
-                        </Card>
+                                            </div>
+                                            <div className={styles.shareStats}><span>访问 {share.clickCount}</span><span>下载 {share.downloadCount}</span></div>
+                                        </div>
+                                        <p className={styles.shareUrl}>{smartUrl}</p>
+                                        <div className={styles.shareActions}>
+                                            <Button icon={<LinkOutlined />} onClick={async () => {await navigator.clipboard.writeText(smartUrl); message.success(t('files.copySuccess'));}}>{t('files.copyLink')}</Button>
+                                            <Popconfirm title={t('files.revokeConfirm')} onConfirm={() => void revokeShare(share.shareId)}><Button danger>{t('files.revoke')}</Button></Popconfirm>
+                                        </div>
+                                    </Card>
+                                );
+                            })}
+                        </div>
                     )}
-                </div>
+                </main>
             </div>
 
-            {shareTarget && (
-                <ShareDialog
-                    open={Boolean(shareTarget)}
-                    fileName={shareTarget.id}
-                    type={shareTarget.type}
-                    onClose={() => setShareTarget(null)}
-                />
-            )}
+            <input ref={fileInputRef} hidden type="file" onChange={(event) => void uploadSelected(event)} />
+            <input ref={(node) => {folderInputRef.current = node; if (node) node.setAttribute('webkitdirectory', '');}} hidden type="file" onChange={(event) => void uploadSelected(event, true)} />
 
-            {previewTarget && (
-                <PreviewModal
-                    open={Boolean(previewTarget)}
-                    fileId={previewTarget.id}
-                    fileName={previewTarget.name}
-                    onClose={() => setPreviewTarget(null)}
-                />
-            )}
+            <Modal open={folderModalOpen} title="新建文件夹" onCancel={() => setFolderModalOpen(false)} onOk={() => void createFolder()} okText="创建" cancelText="取消">
+                <Input placeholder="输入文件夹名称" value={newFolderName} onChange={(event) => setNewFolderName(event.target.value)} />
+            </Modal>
+
+            {shareTarget ? <ShareDialog open={Boolean(shareTarget)} fileName={shareTarget.id} type={shareTarget.type} onClose={() => setShareTarget(null)} /> : null}
+            {previewTarget ? <PreviewModal open={Boolean(previewTarget)} fileId={previewTarget.id} fileName={previewTarget.name} onClose={() => setPreviewTarget(null)} /> : null}
         </div>
     );
 }

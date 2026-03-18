@@ -1,0 +1,280 @@
+.adminPage {
+  display: grid;
+  gap: 20px;
+}
+
+.pageActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.matrixLayout {
+  display: grid;
+  gap: 20px;
+}
+
+.sectionCard {
+  overflow: hidden;
+  border-radius: 28px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.sectionIdentity {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sectionTitle {
+  margin: 0 !important;
+}
+
+.sectionSubtitle {
+  margin: 8px 0 0 !important;
+  color: var(--text-muted);
+  font-size: 0.98rem;
+}
+
+.summaryRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.summaryTag {
+  border-radius: 999px;
+  padding-inline: 10px;
+}
+
+.sectionActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.collapseButton {
+  min-width: 82px;
+}
+
+.sectionBodyWrap {
+  transition: max-height 240ms ease, opacity 220ms ease, transform 220ms ease, margin-top 220ms ease;
+  transform-origin: top center;
+}
+
+.sectionBodyExpanded {
+  max-height: 2400px;
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 20px;
+}
+
+.sectionBodyCollapsed {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  margin-top: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sectionBody {
+  display: grid;
+  gap: 18px;
+}
+
+.sectionGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.systemGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.formPanel,
+.sidePanel {
+  display: grid;
+  gap: 18px;
+}
+
+.sideCard {
+  border-radius: 22px;
+}
+
+.sideCard :global(.ant-typography) {
+  margin-top: 0;
+}
+
+.mutedText {
+  color: var(--text-muted);
+}
+
+.statusCard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(30, 64, 175, 0.1);
+  background: rgba(248, 250, 255, 0.92);
+}
+
+.statusCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.statusList {
+  display: grid;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.listEditor {
+  display: grid;
+  gap: 14px;
+}
+
+.editorToolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.editorToolbar :global(.ant-typography) {
+  margin: 0;
+}
+
+.editorCard {
+  border-radius: 20px;
+  background: rgba(248, 250, 255, 0.92);
+}
+
+.editorHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.subsection {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.subsection :global(.ant-typography) {
+  margin: 0;
+}
+
+.inlineForm {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inlineForm :global(.ant-input) {
+  min-width: 220px;
+  flex: 1;
+}
+
+.snapshotRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eventRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.sourceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.readonlyValue {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-muted);
+}
+
+.logPanel {
+  min-height: 180px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: #0f172a;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  font-family: "IBM Plex Mono", "Consolas", monospace;
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 1280px) {
+  .sectionGrid,
+  .systemGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 840px) {
+  .pageActions {
+    justify-content: flex-start;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+  }
+
+  .sectionActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .inlineForm,
+  .editorToolbar,
+  .statusCardTop,
+  .snapshotRow {
+    align-items: stretch;
+  }
+
+  .inlineForm > * {
+    width: 100%;
+  }
+}

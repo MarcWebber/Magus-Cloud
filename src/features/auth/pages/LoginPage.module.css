@@ -1,101 +1,194 @@
-.loginPanel {
-  width: min(460px, 100%);
-  padding: 36px 32px 30px;
-  border-radius: 28px;
+.loginPage {
+  min-height: 100vh;
+  padding: 24px 28px 40px;
+  background:
+    linear-gradient(180deg, #e8f3ff 0%, #dceefe 100%);
 }
 
-.loginActions {
-  width: 100%;
-}
-
-.brandBlock {
+.topBar {
+  width: min(1360px, 100%);
+  margin: 0 auto 32px;
   display: flex;
   align-items: center;
-  gap: 18px;
+  justify-content: space-between;
 }
 
-.logoWrap {
-  width: 74px;
-  height: 74px;
-  display: grid;
-  place-items: center;
-  border-radius: 22px;
-  background: linear-gradient(145deg, rgba(29, 78, 216, 0.12), rgba(14, 165, 233, 0.08));
-  border: 1px solid rgba(29, 78, 216, 0.12);
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.logo {
-  width: 56px;
-  height: 56px;
+.brand img {
+  width: 48px;
+  height: 48px;
   object-fit: contain;
 }
 
-.brandText h1 {
+.brand strong {
+  display: block;
+  font-size: 1.6rem;
+  color: #0b1830;
+}
+
+.helpButton {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: #4871a7;
+  cursor: pointer;
+}
+
+.heroSection {
+  width: min(1360px, 100%);
+  margin: 0 auto;
+  min-height: calc(100vh - 140px);
+  display: grid;
+  grid-template-columns: minmax(360px, 520px) minmax(520px, 1fr);
+  gap: 40px;
+  align-items: center;
+}
+
+.heroCopy {
+  max-width: 460px;
+}
+
+.heroTitle {
+  margin: 0 !important;
+  color: #07162f;
+  font-size: clamp(3.2rem, 5vw, 5rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.05em;
+}
+
+.heroDescription {
+  margin: 26px 0 34px !important;
+  color: rgba(34, 68, 118, 0.72);
+  font-size: 1.08rem;
+  line-height: 1.8;
+}
+
+.primaryButton {
+  min-width: 180px;
+  min-height: 58px;
+  border-radius: 999px;
+  font-weight: 700;
+  box-shadow: 0 18px 28px rgba(22, 119, 255, 0.2);
+}
+
+.visualPanel {
+  display: grid;
+  justify-items: center;
+}
+
+.visualFrame {
+  width: min(820px, 100%);
+  min-height: 620px;
+  display: grid;
+  place-items: center;
+  border-radius: 56px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.62), transparent 20%),
+    radial-gradient(circle at 36% 38%, rgba(111, 211, 255, 0.24), transparent 28%),
+    linear-gradient(180deg, rgba(220, 241, 255, 0.96), rgba(197, 229, 255, 0.92));
+}
+
+.heroImage {
+  width: min(560px, 78%);
+  object-fit: contain;
+  filter: drop-shadow(0 26px 40px rgba(90, 153, 224, 0.22));
+}
+
+.loginModal :global(.ant-modal-content) {
+  border-radius: 30px;
+  overflow: hidden;
+}
+
+.loginModal :global(.ant-modal-header) {
+  margin-bottom: 12px;
+}
+
+.modalTitle {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.modalBrandIcon {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(22, 119, 255, 0.14), rgba(117, 203, 255, 0.18));
+}
+
+.modalBrandIcon img {
+  width: 54px;
+  height: 54px;
+}
+
+.modalTitle :global(.ant-typography) {
   margin: 0;
-  font-size: 2rem;
-  line-height: 1.08;
 }
 
-.brandText p {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  font-size: 1rem;
-}
-
-.loginForm :global(.ant-form-item-label > label) {
-  font-size: 0.96rem;
-  font-weight: 600;
-}
-
-.loginForm :global(.ant-input-affix-wrapper),
-.loginForm :global(.ant-input) {
-  min-height: 46px;
-  font-size: 1rem;
-}
-
-.loginActions :global(.ant-btn) {
-  min-height: 48px;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.divider :global(.ant-divider-inner-text) {
-  font-size: 0.92rem;
-  color: var(--text-muted);
+.modalPrimaryButton {
+  min-height: 50px;
+  border-radius: 999px;
 }
 
 .adminToggle {
+  margin-top: 14px;
   justify-content: flex-start;
   padding-inline: 0 !important;
-  color: var(--text-muted) !important;
-  font-weight: 600;
+  color: var(--text-main) !important;
+  font-weight: 700;
 }
 
 .adminFormWrap {
-  padding-top: 4px;
-  border-top: 1px solid rgba(20, 33, 61, 0.08);
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
 }
 
-@media (max-width: 640px) {
-  .loginPanel {
-    padding: 30px 22px 24px;
+.adminFormWrap :global(.ant-input-affix-wrapper),
+.adminFormWrap :global(.ant-input),
+.adminFormWrap :global(.ant-btn) {
+  min-height: 46px;
+}
+
+@media (max-width: 1100px) {
+  .heroSection {
+    grid-template-columns: 1fr;
+    min-height: auto;
   }
 
-  .brandBlock {
-    gap: 14px;
+  .heroCopy {
+    max-width: none;
   }
 
-  .logoWrap {
-    width: 64px;
-    height: 64px;
+  .visualFrame {
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 768px) {
+  .loginPage {
+    padding: 18px 18px 28px;
   }
 
-  .logo {
-    width: 48px;
-    height: 48px;
+  .heroTitle {
+    font-size: 2.6rem !important;
   }
 
-  .brandText h1 {
-    font-size: 1.7rem;
+  .visualFrame {
+    border-radius: 36px;
+    min-height: 320px;
   }
 }

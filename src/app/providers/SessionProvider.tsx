@@ -1,4 +1,4 @@
-import {createContext, ReactNode, startTransition, useContext, useEffect, useState} from 'react';
+import {createContext, ReactNode, useContext, useEffect, useState} from 'react';
 import {apiClient} from '../../lib/api/client';
 
 export type SessionState = {
@@ -28,9 +28,7 @@ export function SessionProvider({children}: {children: ReactNode}) {
         setLoading(true);
         try {
             const next = await apiClient.get<SessionState>('/api/auth/session');
-            startTransition(() => {
-                setSession(next);
-            });
+            setSession(next);
         } finally {
             setLoading(false);
         }
@@ -38,9 +36,7 @@ export function SessionProvider({children}: {children: ReactNode}) {
 
     const logout = async () => {
         await apiClient.post('/api/auth/logout');
-        startTransition(() => {
-            setSession({authenticated: false});
-        });
+        setSession({authenticated: false});
     };
 
     useEffect(() => {

@@ -1,12 +1,13 @@
 import {ReactNode, Suspense, lazy} from 'react';
-import {Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
-import {BrowserRouter} from 'react-router-dom';
-import {ConfigProvider, Layout, Menu, Space, Spin, Tag, Avatar, Dropdown} from 'antd';
+import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
+import {Avatar, Button, ConfigProvider, Dropdown, Layout, Menu, Space, Spin, Tag} from 'antd';
 import type {MenuProps} from 'antd';
-import {DashboardOutlined, SettingOutlined, LogoutOutlined, UserOutlined} from '@ant-design/icons';
+import {AppstoreOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, UserOutlined} from '@ant-design/icons';
 import {SessionProvider, useSession} from './providers/SessionProvider';
 import {I18nProvider, useI18n} from './providers/I18nProvider';
 import {LoginPage} from '../features/auth/pages/LoginPage';
+import {AppConfigProvider, useAppConfig} from './providers/AppConfigProvider';
+import {HelpButton, HelpProvider} from './providers/HelpProvider';
 
 const DashboardPage = lazy(() => import('../features/files/pages/DashboardPage'));
 const AdminPage = lazy(() => import('../features/admin/pages/AdminPage'));
@@ -44,12 +45,10 @@ function ProtectedRoute({children, requireAdmin = false}: {children: ReactNode; 
     return children;
 }
 
-function ShellHeader() {
-    const navigate = useNavigate();
-    const location = useLocation();
+function SessionBadge() {
     const {session, logout} = useSession();
     const {t} = useI18n();
-    const title = location.pathname === '/admin' ? t('app.menu.admin') : t('app.menu.files');
+    const navigate = useNavigate();
 
     const items: MenuProps['items'] = [
         {
@@ -64,57 +63,86 @@ function ShellHeader() {
     ];
 
     return (
-        <div className="shell-header">
-            <div className="shell-title">
-                <h1>{title}</h1>
-            </div>
-            <Space size="middle">
-                <Tag color={session?.user?.role === 'admin' ? 'gold' : 'blue'}>
-                    {session?.user?.role === 'admin' ? t('app.session.admin') : t('app.session.feishu')}
-                </Tag>
-                <Dropdown menu={{items}} trigger={['click']}>
-                    <Space className="shell-user-trigger">
-                        <Avatar src={session?.user?.avatarUrl} icon={<UserOutlined />} />
-                        <span>{session?.user?.username}</span>
-                    </Space>
-                </Dropdown>
+        <Dropdown menu={{items}} trigger={['click']}>
+            <Space className="shell-user-trigger">
+                <Avatar src={session?.user?.avatarUrl} icon={<UserOutlined />} />
+                <span>{session?.user?.username}</span>
             </Space>
+        </Dropdown>
+    );
+}
+
+function UserShell({children}: {children: ReactNode}) {
+    const {session} = useSession();
+    const {config} = useAppConfig();
+    const {t} = useI18n();
+    const navigate = useNavigate();
+
+    return (
+        <div className="product-shell">
+            <div className="product-shell-header">
+                <div className="product-shell-brand" onClick={() => navigate('/dashboard')} role="button" tabIndex={0}>
+                    <img src="/magus.png" alt="Magus" />
+                    <div>
+                        <strong>{config.appName}</strong>
+                        <span>{t('app.userShellSubtitle')}</span>
+                    </div>
+                </div>
+                <Space size="middle">
+                    {session?.user?.role === 'admin' && (
+                        <Button icon={<SettingOutlined />} onClick={() => navigate('/admin')}>
+                            {t('app.enterAdmin')}
+                        </Button>
+                    )}
+                    {config.supportUrl && (
+                        <Button href={config.supportUrl} target="_blank" rel="noreferrer">
+                            {t('app.support')}
+                        </Button>
+                    )}
+                    <HelpButton audience={session?.user?.role === 'admin' ? 'admin' : 'user'} />
+                    <Tag color={session?.user?.role === 'admin' ? 'gold' : 'blue'}>
+                        {session?.user?.role === 'admin' ? t('app.session.admin') : t('app.session.feishu')}
+                    </Tag>
+                    <SessionBadge />
+                </Space>
+            </div>
+            <div className="product-shell-content">{children}</div>
         </div>
     );
 }
 
-function AppShell({children}: {children: ReactNode}) {
+function AdminShell({children}: {children: ReactNode}) {
     const navigate = useNavigate();
     const location = useLocation();
     const {session} = useSession();
+    const {config} = useAppConfig();
     const {t} = useI18n();
 
-    const menuItems = [
+    const menuItems: MenuProps['items'] = [
         {
             key: '/dashboard',
-            icon: <DashboardOutlined />,
+            icon: <AppstoreOutlined />,
             label: t('app.menu.files'),
         },
-        session?.user?.role === 'admin'
-            ? {
-                key: '/admin',
-                icon: <SettingOutlined />,
-                label: t('app.menu.admin'),
-            }
-            : null,
-    ].filter(Boolean) as MenuProps['items'];
+        {
+            key: '/admin',
+            icon: <DashboardOutlined />,
+            label: t('app.menu.admin'),
+        },
+    ];
 
     return (
         <div className="app-shell">
             <Layout className="shell-frame">
-                <Layout.Sider width={248} className="shell-sider" breakpoint="lg" collapsedWidth={0}>
+                <Layout.Sider width={260} className="shell-sider" breakpoint="lg" collapsedWidth={0}>
                     <div className="shell-brand">
                         <Space size="middle">
                             <div className="shell-brand-logo">
                                 <img src="/magus.png" alt="Magus" />
                             </div>
                             <div>
-                                <strong>Magus Cloud</strong>
+                                <strong>{config.appName}</strong>
+                                <div className="shell-brand-subtitle">Cloud Ops Console</div>
                             </div>
                         </Space>
                     </div>
@@ -129,7 +157,20 @@ function AppShell({children}: {children: ReactNode}) {
                     </div>
                 </Layout.Sider>
                 <Layout className="shell-main">
-                    <ShellHeader />
+                    <div className="shell-header">
+                        <div className="shell-title">
+                            <h1>{t('app.adminShellTitle')}</h1>
+                            <p>{t('app.adminShellSubtitle')}</p>
+                        </div>
+                        <Space size="middle">
+                            <Button icon={<AppstoreOutlined />} onClick={() => navigate('/dashboard')}>
+                                {t('app.backToFiles')}
+                            </Button>
+                            <HelpButton audience={session?.user?.role === 'admin' ? 'admin' : 'user'} />
+                            <Tag color="gold">{t('app.session.admin')}</Tag>
+                            <SessionBadge />
+                        </Space>
+                    </div>
                     <Layout.Content className="shell-content">
                         <Suspense fallback={<LoadingScreen />}>
                             {children}
@@ -147,23 +188,23 @@ function RoutedApp() {
             <Route path="/" element={<LoginPage />} />
             <Route
                 path="/dashboard"
-                element={
+                element={(
                     <ProtectedRoute>
-                        <AppShell>
+                        <UserShell>
                             <DashboardPage />
-                        </AppShell>
+                        </UserShell>
                     </ProtectedRoute>
-                }
+                )}
             />
             <Route
                 path="/admin"
-                element={
+                element={(
                     <ProtectedRoute requireAdmin>
-                        <AppShell>
+                        <AdminShell>
                             <AdminPage />
-                        </AppShell>
+                        </AdminShell>
                     </ProtectedRoute>
-                }
+                )}
             />
             <Route path="/s/:shareId" element={<PublicSharePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -176,21 +217,25 @@ export function AppRouter() {
         <ConfigProvider
             theme={{
                 token: {
-                    colorPrimary: '#1d4ed8',
+                    colorPrimary: '#1677ff',
                     borderRadius: 18,
-                    colorBgBase: '#f8fbff',
-                    fontFamily: '"IBM Plex Sans", "Segoe UI", sans-serif',
+                    colorBgBase: '#f5f9ff',
+                    fontFamily: '"Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
                     fontSize: 16,
-                    controlHeight: 44,
+                    controlHeight: 42,
                 },
             }}
         >
             <BrowserRouter>
-                <I18nProvider>
-                    <SessionProvider>
-                        <RoutedApp />
-                    </SessionProvider>
-                </I18nProvider>
+                <AppConfigProvider>
+                    <I18nProvider>
+                        <SessionProvider>
+                            <HelpProvider>
+                                <RoutedApp />
+                            </HelpProvider>
+                        </SessionProvider>
+                    </I18nProvider>
+                </AppConfigProvider>
             </BrowserRouter>
         </ConfigProvider>
     );

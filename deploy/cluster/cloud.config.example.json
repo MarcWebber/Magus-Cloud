@@ -1,0 +1,48 @@
+{
+  "cluster": {
+    "mode": "shared-storage",
+    "gatewayPublicUrl": "https://cloud.example.com",
+    "nodes": [
+      {
+        "id": "node-1",
+        "baseUrl": "http://app-node-1:3000",
+        "enabled": true,
+        "tags": ["primary"]
+      },
+      {
+        "id": "node-2",
+        "baseUrl": "http://app-node-2:3000",
+        "enabled": true,
+        "tags": ["secondary"]
+      }
+    ]
+  },
+  "storage": {
+    "sharedRootDir": "/mnt/magus-storage",
+    "totalCapacityGb": 2048,
+    "reserveFreeGb": 100,
+    "defaultUserQuotaGb": 50,
+    "quotaEnabled": true
+  },
+  "users": [
+    {
+      "username": "admin",
+      "displayName": "Administrator",
+      "quotaGb": 50,
+      "enabled": true,
+      "homeDir": "admin"
+    }
+  ],
+  "backup": {
+    "snapshotRootDir": "/mnt/magus-backups",
+    "retentionCount": 20,
+    "compression": "tar.gz",
+    "allowUserExport": true,
+    "verifyAfterCreate": true
+  },
+  "ui": {
+    "appName": "Magus Cloud",
+    "supportUrl": "https://cloud.example.com/support",
+    "defaultLocale": "zh-CN"
+  }
+}

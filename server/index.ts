@@ -1,29 +1,13 @@
-import logger from './logger';
-import {DevEnvLoadCurrentPureUsers, loadCurrentPureUsers} from './utils/loadUsers';
-import {createApp} from './app';
-
-const app = createApp();
-const PORT = 3000;
-
+// Load .env before importing other modules that may read process.env at import time.
 require('dotenv').config();
 
-const isDev = process.env.NODE_ENV === 'development';
+const logger = require('./logger').default;
+const {createApp} = require('./app');
 
-if (isDev) {
-    logger.info('[DEV] Skipping pure-ftpd user discovery');
-    DevEnvLoadCurrentPureUsers().then(() => {
-        app.listen(PORT, () => {
-            logger.info(`Server running at http://localhost:${PORT}`);
-        });
-    }).catch(err => {
-        logger.error(`Error starting dev mode: ${err instanceof Error ? err.message : err}`);
-    });
-} else {
-    loadCurrentPureUsers().then(() => {
-        app.listen(PORT, () => {
-            logger.info(`Server running at http://localhost:${PORT}`);
-        });
-    }).catch(err => {
-        logger.error(`Error starting production mode: ${err instanceof Error ? err.message : err}`);
-    });
-}
+const app = createApp();
+const PORT = Number(process.env.PORT || 3000);
+
+app.listen(PORT, () => {
+    logger.info(`Server running at http://localhost:${PORT}`);
+    logger.info('Magus Cloud is using cloud.config.json + PostgreSQL metadata bootstrap');
+});

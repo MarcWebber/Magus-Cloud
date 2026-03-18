@@ -1,7 +1,11 @@
-import fs from 'fs';
-import path from 'path';
 import {v4 as uuidv4} from 'uuid';
-import {getDataDir} from '../../lib/config/store';
+import {
+    bumpShareStats,
+    createShareRecord,
+    deleteShareRecord,
+    getShareRecord,
+    listShareRecordsByUser,
+} from '../../lib/platform/metadata';
 
 export interface ShareRecord {
     shareId: string;
@@ -15,102 +19,94 @@ export interface ShareRecord {
     downloadCount: number;
 }
 
-const SHARE_FILE = path.join(getDataDir(), 'shares.json');
-
-function ensureShareFile() {
-    if (!fs.existsSync(SHARE_FILE)) {
-        fs.writeFileSync(SHARE_FILE, '[]', 'utf8');
-    }
-}
-
-function readShares() {
-    ensureShareFile();
-    try {
-        return JSON.parse(fs.readFileSync(SHARE_FILE, 'utf8')) as ShareRecord[];
-    } catch {
-        return [];
-    }
-}
-
-function writeShares(shares: ShareRecord[]) {
-    ensureShareFile();
-    fs.writeFileSync(SHARE_FILE, JSON.stringify(shares, null, 2), 'utf8');
-}
-
-function cleanupExpired(shares: ShareRecord[]) {
-    const now = Date.now();
-    const next = shares.filter((item) => item.expireAt === null || item.expireAt > now);
-    if (next.length !== shares.length) {
-        writeShares(next);
-    }
-    return next;
-}
-
 function generateAccessCode() {
     return Math.random().toString(36).slice(2, 6).toLowerCase();
 }
 
-export function createShare(input: {
+function mapRecord(record: {
+    share_id: string;
+    username: string;
+    file_name: string;
+    type: 'file' | 'folder';
+    expire_at: Date | null;
+    access_code: string;
+    created_at: Date;
+    click_count: number;
+    download_count: number;
+}): ShareRecord {
+    return {
+        shareId: record.share_id,
+        username: record.username,
+        fileName: record.file_name,
+        type: record.type,
+        expireAt: record.expire_at ? new Date(record.expire_at).getTime() : null,
+        accessCode: record.access_code,
+        createdAt: new Date(record.created_at).getTime(),
+        clickCount: record.click_count,
+        downloadCount: record.download_count,
+    };
+}
+
+export async function createShare(input: {
     username: string;
     fileName: string;
     type: 'file' | 'folder';
     expireDays?: number;
     hasCode?: boolean;
 }) {
-    const shares = cleanupExpired(readShares());
     const expireAt = input.expireDays && input.expireDays > 0
-        ? Date.now() + input.expireDays * 24 * 60 * 60 * 1000
+        ? new Date(Date.now() + input.expireDays * 24 * 60 * 60 * 1000).toISOString()
         : null;
 
-    const record: ShareRecord = {
+    const record = {
         shareId: `s_${uuidv4().slice(0, 6)}`,
         username: input.username,
         fileName: input.fileName,
         type: input.type,
         expireAt,
         accessCode: input.hasCode ? generateAccessCode() : '',
+    };
+
+    await createShareRecord(record);
+    return {
+        shareId: record.shareId,
+        username: record.username,
+        fileName: record.fileName,
+        type: record.type,
+        expireAt: expireAt ? new Date(expireAt).getTime() : null,
+        accessCode: record.accessCode,
         createdAt: Date.now(),
         clickCount: 0,
         downloadCount: 0,
     };
-
-    shares.push(record);
-    writeShares(shares);
-    return record;
 }
 
-export function getShareById(shareId: string) {
-    const shares = cleanupExpired(readShares());
-    return shares.find((item) => item.shareId === shareId) || null;
+export async function getShareById(shareId: string) {
+    const record = await getShareRecord(shareId);
+    return record ? mapRecord(record) : null;
 }
 
-export function listSharesByUser(username: string) {
-    const shares = cleanupExpired(readShares());
-    return shares
-        .filter((item) => item.username === username)
-        .sort((a, b) => b.createdAt - a.createdAt);
+export async function listSharesByUser(username: string) {
+    const records = await listShareRecordsByUser(username);
+    return records.map(mapRecord);
 }
 
-export function deleteShare(shareId: string, username: string) {
-    const shares = cleanupExpired(readShares());
-    const next = shares.filter((item) => !(item.shareId === shareId && item.username === username));
-    const deleted = next.length !== shares.length;
-
-    if (deleted) {
-        writeShares(next);
-    }
-
-    return deleted;
+export async function deleteShare(shareId: string, username: string) {
+    return deleteShareRecord(shareId, username);
 }
 
-export function updateShare(shareId: string, updater: (record: ShareRecord) => ShareRecord) {
-    const shares = cleanupExpired(readShares());
-    const index = shares.findIndex((item) => item.shareId === shareId);
-    if (index === -1) {
+export async function updateShare(shareId: string, updater: (record: ShareRecord) => ShareRecord) {
+    const current = await getShareById(shareId);
+    if (!current) {
         return null;
     }
 
-    shares[index] = updater(shares[index]);
-    writeShares(shares);
-    return shares[index];
+    const next = updater(current);
+    if (next.clickCount > current.clickCount) {
+        await bumpShareStats(shareId, 'click_count');
+    }
+    if (next.downloadCount > current.downloadCount) {
+        await bumpShareStats(shareId, 'download_count');
+    }
+    return getShareById(shareId);
 }

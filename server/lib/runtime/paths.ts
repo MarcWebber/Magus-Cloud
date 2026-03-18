@@ -1,14 +1,19 @@
 import path from 'path';
-import {getSystemSettings} from '../config/store';
+import {getCloudConfig, getConfiguredCloudUser} from '../cloud/config';
 
 export function getStorageRoot(isDev: boolean) {
-    const settings = getSystemSettings();
-    return isDev ? settings.storage.devRootDir : settings.storage.rootDir;
+    const loaded = getCloudConfig();
+    if (isDev && process.env.MAGUS_DEV_STORAGE_ROOT) {
+        return path.resolve(process.cwd(), process.env.MAGUS_DEV_STORAGE_ROOT);
+    }
+    return path.resolve(process.cwd(), loaded.config.storage.sharedRootDir);
 }
 
 export function getUserStorageRoot(username: string, isDev: boolean) {
     const rootDir = getStorageRoot(isDev);
-    return isDev ? rootDir : path.join(rootDir, username);
+    const configured = getConfiguredCloudUser(username);
+    const homeDir = configured?.homeDir || username;
+    return path.join(rootDir, homeDir);
 }
 
 export function resolveSafeUserPath(username: string, relativePath: string, isDev: boolean) {

@@ -20,7 +20,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         const message = typeof payload === 'object' && payload && 'error' in payload
             ? String((payload as {error: string}).error)
-            : interpolate('请求失败，状态码：{status}', {status: response.status});
+            : interpolate('\u8bf7\u6c42\u5931\u8d25\uff0c\u72b6\u6001\u7801 {status}', {status: response.status});
         throw new ApiError(message, response.status);
     }
 
@@ -78,13 +78,13 @@ export const apiClient = {
                         resolve(payload as T);
                         return;
                     }
-                    reject(new ApiError(payload.error || '上传失败', xhr.status));
+                    reject(new ApiError(payload.error || '\u4e0a\u4f20\u5931\u8d25', xhr.status));
                 } catch (error) {
                     reject(error);
                 }
             };
 
-            xhr.onerror = () => reject(new ApiError('网络异常', xhr.status || 500));
+            xhr.onerror = () => reject(new ApiError('\u7f51\u7edc\u8bf7\u6c42\u5931\u8d25', xhr.status || 500));
             xhr.send(formData);
         });
     },
