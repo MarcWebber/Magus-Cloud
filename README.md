@@ -112,6 +112,7 @@ docker compose up -d --build
 - `GET /api/admin/service-config`
 - `PUT /api/admin/service-config`
 - `GET /api/admin/cloud-config`
+
 - `PUT /api/admin/cloud-config`
 - `GET /api/usage`
 - `POST /api/create-folder`
