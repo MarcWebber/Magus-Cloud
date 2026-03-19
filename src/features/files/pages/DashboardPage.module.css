@@ -1,13 +1,14 @@
 .dashboardPage {
   display: grid;
   gap: 20px;
+  align-content: start;
 }
 
 .shellGrid {
   display: grid;
   grid-template-columns: 74px 284px minmax(0, 1fr);
   gap: 18px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .iconRail,
@@ -16,6 +17,7 @@
   border: 1px solid var(--border-soft);
   background: rgba(255, 255, 255, 0.84);
   box-shadow: var(--shadow-md);
+  align-self: start;
 }
 
 .iconRail {
@@ -130,7 +132,7 @@
 }
 
 .storagePanel {
-  margin-top: auto;
+  margin-top: 6px;
   padding: 16px;
   border-radius: 22px;
   background: linear-gradient(180deg, rgba(22, 119, 255, 0.09), rgba(118, 180, 255, 0.08));
@@ -158,6 +160,7 @@
   padding: 22px;
   display: grid;
   gap: 18px;
+  align-content: start;
 }
 
 .heroBar {

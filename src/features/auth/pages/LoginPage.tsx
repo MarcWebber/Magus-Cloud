@@ -53,20 +53,15 @@ export function LoginPage() {
             <main className={styles.heroSection}>
                 <section className={styles.heroCopy}>
                     <Typography.Title className={styles.heroTitle}>
-                        让团队资料
-                        <br />
-                        轻松留在云端
+                        {config.appName}
                     </Typography.Title>
-                    <Typography.Paragraph className={styles.heroDescription}>
-                        为团队文件提供上传、预览、分享与整理能力，让常用资料像网盘一样更顺手、更清爽。
-                    </Typography.Paragraph>
                     <Button
                         type="primary"
                         size="large"
                         className={styles.primaryButton}
                         onClick={() => setShowLoginModal(true)}
                     >
-                        去登录
+                        开始使用
                     </Button>
                 </section>
 
@@ -91,9 +86,7 @@ export function LoginPage() {
                         </div>
                         <div>
                             <Typography.Title level={3}>登录 {config.appName}</Typography.Title>
-                            <Typography.Paragraph>
-                                默认使用飞书完成登录。管理员应急入口仅用于初始化、排障和配置维护。
-                            </Typography.Paragraph>
+                            <Typography.Paragraph>请选择一种登录方式</Typography.Paragraph>
                         </div>
                     </div>
                 )}

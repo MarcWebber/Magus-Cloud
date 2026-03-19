@@ -1,0 +1,159 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "Magus" [ref=e11]
+        - generic [ref=e13]:
+          - strong [ref=e14]: Magus Cloud
+          - generic [ref=e15]: Cloud Ops Console
+      - menu [ref=e17]:
+        - menuitem "appstore 文件工作台" [ref=e18] [cursor=pointer]:
+          - img "appstore" [ref=e19]:
+            - img [ref=e20]
+          - generic [ref=e22]: 文件工作台
+        - menuitem "dashboard 后台面板" [ref=e23] [cursor=pointer]:
+          - img "dashboard" [ref=e24]:
+            - img [ref=e25]
+          - generic [ref=e27]: 后台面板
+  - generic [ref=e28]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - heading "运维控制台" [level=1] [ref=e31]
+        - paragraph [ref=e32]: 集中查看节点、容量、备份与服务配置
+      - generic [ref=e33]:
+        - button "appstore 返回文件工作台" [ref=e35] [cursor=pointer]:
+          - img "appstore" [ref=e37]:
+            - img [ref=e38]
+          - generic [ref=e40]: 返回文件工作台
+        - button "打开使用文档" [ref=e42] [cursor=pointer]:
+          - img "question-circle" [ref=e44]:
+            - img [ref=e45]
+        - generic [ref=e49]: 管理员会话
+        - generic [ref=e51] [cursor=pointer]:
+          - img "user" [ref=e54]:
+            - img [ref=e55]
+          - generic [ref=e57]: admin
+    - main [ref=e58]:
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - button "全部展开" [ref=e61] [cursor=pointer]:
+            - generic [ref=e62]: 全部展开
+          - button "全部收起" [ref=e63] [cursor=pointer]:
+            - generic [ref=e64]: 全部收起
+          - button "reload 刷新状态" [ref=e65] [cursor=pointer]:
+            - img "reload" [ref=e67]:
+              - img [ref=e68]
+            - generic [ref=e70]: 刷新状态
+          - button "save 保存主配置" [ref=e71] [cursor=pointer]:
+            - img "save" [ref=e73]:
+              - img [ref=e74]
+            - generic [ref=e76]: 保存主配置
+        - generic [ref=e78]:
+          - complementary [ref=e79]:
+            - generic [ref=e80]: 后台模块
+            - generic [ref=e81]: 每个模块独立入口，避免长页面堆叠。
+            - generic [ref=e82]:
+              - button "集群与网关 节点与网关地址" [ref=e83] [cursor=pointer]:
+                - strong [ref=e84]: 集群与网关
+                - generic [ref=e85]: 节点与网关地址
+              - button "容量与配额 容量、阈值与策略" [ref=e86] [cursor=pointer]:
+                - strong [ref=e87]: 容量与配额
+                - generic [ref=e88]: 容量、阈值与策略
+              - button "用户与空间 用户与配额分配" [ref=e89] [cursor=pointer]:
+                - strong [ref=e90]: 用户与空间
+                - generic [ref=e91]: 用户与配额分配
+              - button "备份与迁移 快照、导入与导出" [ref=e92] [cursor=pointer]:
+                - strong [ref=e93]: 备份与迁移
+                - generic [ref=e94]: 快照、导入与导出
+              - button "系统配置 认证、集成与运行状态" [ref=e95] [cursor=pointer]:
+                - strong [ref=e96]: 系统配置
+                - generic [ref=e97]: 认证、集成与运行状态
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - generic [ref=e102]:
+                - generic [ref=e103]:
+                  - heading "集群与网关" [level=3] [ref=e104]
+                  - generic [ref=e105]: 管理网关地址、节点列表与在线状态，折叠后仍保留版本和节点摘要。
+                - generic [ref=e106]:
+                  - generic [ref=e107]: 配置版本 43e99707
+                  - generic [ref=e108]: 1/1 节点
+                  - generic [ref=e109]: 主配置
+              - generic [ref=e110]:
+                - button "save 保存本区" [ref=e111] [cursor=pointer]:
+                  - img "save" [ref=e113]:
+                    - img [ref=e114]
+                  - generic [ref=e116]: 保存本区
+                - button "caret-down 收起" [ref=e117] [cursor=pointer]:
+                  - img "caret-down" [ref=e119]:
+                    - img [ref=e120]
+                  - generic [ref=e122]: 收起
+            - generic [ref=e125]:
+              - generic [ref=e126]:
+                - generic [ref=e128]:
+                  - generic "网关公网地址" [ref=e130]: "* 网关公网地址"
+                  - textbox "* 网关公网地址" [ref=e134]:
+                    - /placeholder: https://cloud.example.com
+                    - text: http://localhost:3000
+                - alert [ref=e135]:
+                  - img "info-circle" [ref=e136]:
+                    - img [ref=e137]
+                  - generic [ref=e139]:
+                    - generic [ref=e140]: 当前配置文件：F:\magus\Magus-Cloud\config\magus.config.json
+                    - generic [ref=e141]: 最近更新时间：2026/3/18 21:05:55
+                - generic [ref=e142]:
+                  - generic [ref=e143]:
+                    - heading "节点列表" [level=5] [ref=e144]
+                    - button "plus 新增节点" [ref=e145] [cursor=pointer]:
+                      - img "plus" [ref=e147]:
+                        - img [ref=e148]
+                      - generic [ref=e151]: 新增节点
+                  - generic [ref=e153]:
+                    - generic [ref=e154]:
+                      - strong [ref=e156]: 节点 1
+                      - button "delete 删除" [ref=e157] [cursor=pointer]:
+                        - img "delete" [ref=e159]:
+                          - img [ref=e160]
+                        - generic [ref=e162]: 删除
+                    - generic [ref=e163]:
+                      - generic [ref=e166]:
+                        - generic "节点 ID" [ref=e168]: "* 节点 ID"
+                        - textbox "* 节点 ID" [ref=e172]: node-local
+                      - generic [ref=e175]:
+                        - generic "节点地址" [ref=e177]: "* 节点地址"
+                        - textbox "* 节点地址" [ref=e181]: http://localhost:3000
+                      - generic [ref=e184]:
+                        - generic "启用节点" [ref=e186]
+                        - switch "启用节点" [checked] [ref=e190] [cursor=pointer]
+                    - generic [ref=e194]:
+                      - generic "标签" [ref=e196]
+                      - generic [ref=e200] [cursor=pointer]:
+                        - generic [ref=e203]:
+                          - generic "primary" [ref=e205]:
+                            - generic [ref=e206]: primary
+                            - img [ref=e208]:
+                              - img [ref=e209]
+                          - generic "development" [ref=e212]:
+                            - generic [ref=e213]: development
+                            - img [ref=e215]:
+                              - img [ref=e216]
+                          - combobox "标签" [ref=e220]
+                        - generic:
+                          - img:
+                            - img
+              - generic [ref=e223]:
+                - heading "节点大盘" [level=5] [ref=e224]
+                - generic [ref=e225]:
+                  - generic [ref=e226]:
+                    - strong [ref=e227]: node-local
+                    - generic [ref=e228]: 在线
+                  - generic [ref=e229]:
+                    - generic [ref=e230]: Base URL：http://localhost:3000
+                    - generic [ref=e231]: 存储挂载：正常
+                    - generic [ref=e232]: 数据库连通：正常
+                    - generic [ref=e233]: 最近心跳：2026/3/19 14:34:20
+                    - generic [ref=e234]: Tags：primary, development
+                    - generic [ref=e235]: 网关地址：http://localhost:3000
+```

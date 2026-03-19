@@ -163,7 +163,6 @@ export async function getMonitoringStatus() {
             latest: backups[0] || null,
         },
         dependencies: {
-            soffice: commandExists('soffice'),
             purePw: commandExists('pure-pw'),
         },
         ngrok,

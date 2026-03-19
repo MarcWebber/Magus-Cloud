@@ -130,6 +130,7 @@ function AdminShell({children}: {children: ReactNode}) {
             label: t('app.menu.admin'),
         },
     ];
+    const selectedShellMenuKey = location.pathname.startsWith('/admin') ? '/admin' : '/dashboard';
 
     return (
         <div className="app-shell">
@@ -150,7 +151,7 @@ function AdminShell({children}: {children: ReactNode}) {
                         <Menu
                             theme="dark"
                             mode="inline"
-                            selectedKeys={[location.pathname]}
+                            selectedKeys={[selectedShellMenuKey]}
                             items={menuItems}
                             onClick={({key}) => navigate(key)}
                         />
@@ -197,7 +198,7 @@ function RoutedApp() {
                 )}
             />
             <Route
-                path="/admin"
+                path="/admin/*"
                 element={(
                     <ProtectedRoute requireAdmin>
                         <AdminShell>

@@ -62,7 +62,6 @@
     "express": "^5.1.0",
     "iconv-lite": "^0.7.0",
     "jsonwebtoken": "^9.0.2",
-    "libreoffice": "^0.4.5",
     "lucide-react": "^0.532.0",
     "mammoth": "^1.10.0",
     "marked": "^17.0.4",

@@ -7,7 +7,7 @@ import XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import { Response } from 'express';
 import {
-    mimeByExt, extOf, convertWithSoffice, isValidPdf, wrapHtml
+    mimeByExt, extOf, wrapHtml
 } from '../utils/previewUtils';
 import logger from '../logger'; // 你的日志工具
 
@@ -19,25 +19,18 @@ export async function handleWordPreview(
     res: Response
 ) {
     const ext = extOf(nameParam);
+    if (mode === 'pdf' && ext !== 'docx') {
+        return res.status(415).json({ error: '当前仅支持 docx 在线预览，请下载该文件查看。' });
+    }
+    if (ext !== 'docx') {
+        return res.status(415).json({ error: '当前仅支持 docx 在线预览，请下载该文件查看。' });
+    }
     try {
-        const pdfPath = await convertWithSoffice(filePath, 'pdf');
-        if (!(await isValidPdf(pdfPath))) throw new Error('Invalid PDF');
-        res.setHeader('Content-Type', 'application/pdf');
-        return fs.createReadStream(pdfPath).pipe(res);
+        const { value: html } = await mammoth.convertToHtml({ path: filePath });
+        return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
     } catch (e: any) {
-        logger?.error?.(`Word→PDF 失败：${e?.message || e}`);
-        try {
-            if (ext === 'docx') {
-                const { value: html } = await mammoth.convertToHtml({ path: filePath });
-                return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-            }
-            const htmlPath = await convertWithSoffice(filePath, 'html');
-            const html = await fsp.readFile(htmlPath, 'utf8');
-            return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-        } catch (e2: any) {
-            logger?.error?.(`Word HTML 回退失败：${e2?.message || e2}`);
-            return res.status(500).json({ error: 'Word 转换失败' });
-        }
+        logger?.error?.(`DOCX 转换失败：${e?.message || e}`);
+        return res.status(500).json({ error: 'DOCX 转换失败' });
     }
 }
 
@@ -84,31 +77,19 @@ export async function handleDocxPreview(
     try {
         const { value: html } = await mammoth.convertToHtml({ path: filePath });
         return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-    } catch {
-        const htmlPath = await convertWithSoffice(filePath, 'html');
-        const html = await fsp.readFile(htmlPath, 'utf8');
-        return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
+    } catch (error) {
+        logger?.error?.(`DOCX 预览失败：${error instanceof Error ? error.message : error}`);
+        return res.status(500).json({ error: 'DOCX 预览失败' });
     }
 }
 
 // ===== DOC/RTF 单独处理（非PDF模式）=====
 export async function handleDocRtfPreview(
-    filePath: string,
+    _filePath: string,
     nameParam: string,
     res: Response
 ) {
-    try {
-        const htmlPath = await convertWithSoffice(filePath, 'html');
-        const html = await fsp.readFile(htmlPath, 'utf8');
-        return res.json({ type: 'text/html', content: wrapHtml(html), filename: nameParam });
-    } catch {
-        const pdfPath = await convertWithSoffice(filePath, 'pdf');
-        if (!(await isValidPdf(pdfPath))) {
-            return res.status(500).json({ error: '文档转换失败' });
-        }
-        res.setHeader('Content-Type', 'application/pdf');
-        return fs.createReadStream(pdfPath).pipe(res);
-    }
+    return res.status(415).json({ error: `暂不支持 ${extOf(nameParam)} 在线预览，请下载后查看。` });
 }
 
 // ===== Excel 处理 =====
@@ -127,16 +108,11 @@ export async function handleExcelPreview(
 
 // ===== PPT 处理 =====
 export async function handlePptPreview(
-    filePath: string,
+    _filePath: string,
     nameParam: string,
     res: Response
 ) {
-    const pdfPath = await convertWithSoffice(filePath, 'pdf');
-    if (!(await isValidPdf(pdfPath))) {
-        return res.status(500).json({ error: 'PPT 转 PDF 失败' });
-    }
-    res.setHeader('Content-Type', 'application/pdf');
-    return fs.createReadStream(pdfPath).pipe(res);
+    return res.status(415).json({ error: `暂不支持 ${extOf(nameParam)} 在线预览，请下载后查看。` });
 }
 
 // ===== PDF 处理 =====

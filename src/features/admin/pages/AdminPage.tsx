@@ -1,6 +1,7 @@
 import {ReactNode, useEffect, useMemo, useState} from 'react';
 import {Alert, Button, Card, Col, Empty, Form, Input, InputNumber, List, Radio, Row, Select, Space, Switch, Tag, Typography, message} from 'antd';
 import {CaretDownOutlined, CaretRightOutlined, DeleteOutlined, InboxOutlined, PlusOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
+import {useLocation, useNavigate} from 'react-router-dom';
 import {apiClient} from '../../../lib/api/client';
 import {usePersistentPanels} from '../../../lib/ui/usePersistentPanels';
 import {useAppConfig} from '../../../app/providers/AppConfigProvider';
@@ -23,13 +24,26 @@ type StatusPayload = {
     cluster?: {gatewayPublicUrl?: string; activeNodes?: Array<{node_id: string; base_url: string; storage_mounted: boolean; database_ok: boolean; tags?: string[]; last_heartbeat?: string}>};
     storage?: {totalCapacityBytes: number; usedBytes: number; reserveFreeBytes: number; allocatableBytes: number; warningThresholdPercent?: number; warningTriggered?: boolean; overQuotaUsers: Array<{username: string; displayName: string; percent: number | null}>};
     database?: {connected: boolean};
-    dependencies?: {soffice: boolean; purePw: boolean};
+    dependencies?: {purePw: boolean};
     ngrok?: {connected: boolean};
 };
 type BackupItem = {snapshotId: string; kind: string; createdAt: string; status: string; username: string | null};
 type LogPayload = {lines: string[]; events: Array<{level: string; message: string; created_at: string}>};
 
 const PANEL_DEFAULTS = {cluster: false, storage: false, users: false, backup: false, system: false};
+type AdminSection = 'cluster' | 'storage' | 'users' | 'backup' | 'system';
+const ADMIN_SECTIONS: Array<{key: AdminSection; label: string; description: string}> = [
+    {key: 'cluster', label: '集群与网关', description: '节点与网关地址'},
+    {key: 'storage', label: '容量与配额', description: '容量、阈值与策略'},
+    {key: 'users', label: '用户与空间', description: '用户与配额分配'},
+    {key: 'backup', label: '备份与迁移', description: '快照、导入与导出'},
+    {key: 'system', label: '系统配置', description: '认证、集成与运行状态'},
+];
+
+function parseAdminSection(pathname: string): AdminSection {
+    const maybe = pathname.split('/')[2] as AdminSection | undefined;
+    return ADMIN_SECTIONS.some((item) => item.key === maybe) ? (maybe as AdminSection) : 'cluster';
+}
 
 function formatBytes(bytes?: number) {
     if (!bytes || bytes <= 0) return '0 B';
@@ -71,6 +85,8 @@ function SectionCard({title, subtitle, summary, collapsed, onToggle, actions, ch
 }
 
 export default function AdminPage() {
+    const location = useLocation();
+    const navigate = useNavigate();
     const [form] = Form.useForm<ServiceConfig>();
     const draft = Form.useWatch([], form) as ServiceConfig | undefined;
     const {refresh: refreshAppConfig} = useAppConfig();
@@ -87,6 +103,13 @@ export default function AdminPage() {
     const [importArchivePath, setImportArchivePath] = useState('');
     const [importTargetUsername, setImportTargetUsername] = useState('');
     const [dryRun, setDryRun] = useState(true);
+    const activeSection = parseAdminSection(location.pathname);
+
+    useEffect(() => {
+        if (location.pathname === '/admin' || location.pathname === '/admin/') {
+            navigate('/admin/cluster', {replace: true});
+        }
+    }, [location.pathname, navigate]);
 
     const refresh = async () => {
         setLoading(true);
@@ -163,7 +186,47 @@ export default function AdminPage() {
         }
     };
 
-    const current = draft?.cluster ? draft : serviceConfig?.config;
+    const current = useMemo(() => {
+        if (!serviceConfig) {
+            return null;
+        }
+        if (!draft) {
+            return serviceConfig.config;
+        }
+        return {
+            ...serviceConfig.config,
+            ...draft,
+            cluster: {
+                ...serviceConfig.config.cluster,
+                ...(draft.cluster || {}),
+            },
+            storage: {
+                ...serviceConfig.config.storage,
+                ...(draft.storage || {}),
+            },
+            backup: {
+                ...serviceConfig.config.backup,
+                ...(draft.backup || {}),
+            },
+            ui: {
+                ...serviceConfig.config.ui,
+                ...(draft.ui || {}),
+            },
+            auth: {
+                ...serviceConfig.config.auth,
+                ...(draft.auth || {}),
+            },
+            feishu: {
+                ...serviceConfig.config.feishu,
+                ...(draft.feishu || {}),
+            },
+            ngrok: {
+                ...serviceConfig.config.ngrok,
+                ...(draft.ngrok || {}),
+            },
+            users: draft.users || serviceConfig.config.users,
+        };
+    }, [draft, serviceConfig]);
     const nodeSummary = useMemo(() => current?.cluster.nodes.filter((node) => node.enabled).length || 0, [current]);
     if (loading && !serviceConfig) return <Card loading className="glass-card" />;
     if (!serviceConfig || !current) return <Alert type="error" showIcon message="无法加载管理员配置" />;
@@ -177,8 +240,29 @@ export default function AdminPage() {
                 <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存主配置</Button>
             </div>
             <Form form={form} layout="vertical" initialValues={serviceConfig.config}>
-                <div className={styles.matrixLayout}>
-                    <SectionCard title="集群与网关" subtitle="管理网关地址、节点列表与在线状态，折叠后仍保留版本和节点摘要。" summary={[<SummaryTag key="v" color="blue">配置版本 {serviceConfig.version.slice(0, 8)}</SummaryTag>, <SummaryTag key="n" color={nodeSummary ? 'green' : 'red'}>{nodeSummary}/{current.cluster.nodes.length} 节点</SummaryTag>, <SummaryTag key="s">{serviceConfig.source === 'magus-config' ? '主配置' : '兼容迁移'}</SummaryTag>]} collapsed={panels.state.cluster} onToggle={() => panels.toggle('cluster')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
+                <div className={styles.adminSplitLayout}>
+                    <aside className={styles.moduleSider}>
+                        <div className={styles.moduleSiderTitle}>后台模块</div>
+                        <div className={styles.moduleSiderHint}>每个模块独立入口，避免长页面堆叠。</div>
+                        <div className={styles.moduleNavList}>
+                            {ADMIN_SECTIONS.map((section) => {
+                                const active = activeSection === section.key;
+                                return (
+                                    <button
+                                        key={section.key}
+                                        type="button"
+                                        className={`${styles.moduleNavButton} ${active ? styles.moduleNavButtonActive : ''}`}
+                                        onClick={() => navigate(`/admin/${section.key}`)}
+                                    >
+                                        <strong>{section.label}</strong>
+                                        <span>{section.description}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </aside>
+                    <div className={styles.matrixLayout}>
+                    {activeSection === 'cluster' ? <SectionCard title="集群与网关" subtitle="管理网关地址、节点列表与在线状态，折叠后仍保留版本和节点摘要。" summary={[<SummaryTag key="v" color="blue">配置版本 {serviceConfig.version.slice(0, 8)}</SummaryTag>, <SummaryTag key="n" color={nodeSummary ? 'green' : 'red'}>{nodeSummary}/{current.cluster.nodes.length} 节点</SummaryTag>, <SummaryTag key="s">{serviceConfig.source === 'magus-config' ? '主配置' : '兼容迁移'}</SummaryTag>]} collapsed={panels.state.cluster} onToggle={() => panels.toggle('cluster')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
                         <div className={styles.sectionGrid}>
                             <div className={styles.formPanel}>
                                 <Form.Item label="网关公网地址" name={['cluster', 'gatewayPublicUrl']} rules={[{required: true, message: '请输入网关公网地址'}]}><Input placeholder="https://cloud.example.com" /></Form.Item>
@@ -187,8 +271,8 @@ export default function AdminPage() {
                             </div>
                             <div className={styles.sidePanel}><Card size="small" className={styles.sideCard}><Typography.Title level={5}>节点大盘</Typography.Title>{status?.cluster?.activeNodes?.length ? status.cluster.activeNodes.map((node) => <div key={node.node_id} className={styles.statusCard}><div className={styles.statusCardTop}><strong>{node.node_id}</strong><Tag color={node.database_ok && node.storage_mounted ? 'green' : 'orange'}>{node.database_ok && node.storage_mounted ? '在线' : '需关注'}</Tag></div><div className={styles.statusList}><span>Base URL：{node.base_url}</span><span>存储挂载：{node.storage_mounted ? '正常' : '异常'}</span><span>数据库连通：{node.database_ok ? '正常' : '异常'}</span><span>最近心跳：{formatDate(node.last_heartbeat)}</span><span>Tags：{node.tags?.join(', ') || '-'}</span><span>网关地址：{status.cluster?.gatewayPublicUrl || current.cluster.gatewayPublicUrl}</span></div></div>) : <Empty description="暂无节点状态数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />}</Card></div>
                         </div>
-                    </SectionCard>
-                    <SectionCard title="容量与配额" subtitle="配置共享存储、总容量和策略预留字段，并明确标注当前只做展示不改上传逻辑。" summary={[<SummaryTag key="m" color="blue">模式 {current.storage.quotaMode === 'oversell' ? '超卖预留' : '硬限制'}</SummaryTag>, <SummaryTag key="u">{formatBytes(status?.storage?.usedBytes)} / {formatBytes(status?.storage?.totalCapacityBytes)}</SummaryTag>, <SummaryTag key="w" color={status?.storage?.warningTriggered ? 'orange' : 'green'}>{status?.storage?.warningTriggered ? '已触发告警' : '状态平稳'}</SummaryTag>]} collapsed={panels.state.storage} onToggle={() => panels.toggle('storage')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
+                    </SectionCard> : null}
+                    {activeSection === 'storage' ? <SectionCard title="容量与配额" subtitle="配置共享存储、总容量和策略预留字段，并明确标注当前只做展示不改上传逻辑。" summary={[<SummaryTag key="m" color="blue">模式 {current.storage.quotaMode === 'oversell' ? '超卖预留' : '硬限制'}</SummaryTag>, <SummaryTag key="u">{formatBytes(status?.storage?.usedBytes)} / {formatBytes(status?.storage?.totalCapacityBytes)}</SummaryTag>, <SummaryTag key="w" color={status?.storage?.warningTriggered ? 'orange' : 'green'}>{status?.storage?.warningTriggered ? '已触发告警' : '状态平稳'}</SummaryTag>]} collapsed={panels.state.storage} onToggle={() => panels.toggle('storage')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
                         <div className={styles.sectionGrid}>
                             <div className={styles.formPanel}>
                                 <Row gutter={16}>
@@ -214,16 +298,16 @@ export default function AdminPage() {
                                 <Card size="small" className={styles.sideCard}><Typography.Title level={5}>存储优化路线</Typography.Title><div className={styles.statusList}><span>当前去重状态：未启用</span><span>后续路线：基于 hash / metadata 的去重规划</span><span>自动扩容：仅预留字段，暂不执行</span></div></Card>
                             </div>
                         </div>
-                    </SectionCard>
-                    <SectionCard title="用户与空间分配" subtitle="维护用户名、显示名、homeDir 和配额，帮助管理员快速识别超额用户。" summary={[<SummaryTag key="u">{current.users.filter((user) => user.enabled).length}/{current.users.length} 已启用</SummaryTag>, <SummaryTag key="q" color={status?.storage?.overQuotaUsers?.length ? 'orange' : 'green'}>{status?.storage?.overQuotaUsers?.length ? `${status.storage.overQuotaUsers.length} 个超额用户` : '无超额用户'}</SummaryTag>]} collapsed={panels.state.users} onToggle={() => panels.toggle('users')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
+                    </SectionCard> : null}
+                    {activeSection === 'users' ? <SectionCard title="用户与空间分配" subtitle="维护用户名、显示名、homeDir 和配额，帮助管理员快速识别超额用户。" summary={[<SummaryTag key="u">{current.users.filter((user) => user.enabled).length}/{current.users.length} 已启用</SummaryTag>, <SummaryTag key="q" color={status?.storage?.overQuotaUsers?.length ? 'orange' : 'green'}>{status?.storage?.overQuotaUsers?.length ? `${status.storage.overQuotaUsers.length} 个超额用户` : '无超额用户'}</SummaryTag>]} collapsed={panels.state.users} onToggle={() => panels.toggle('users')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
                         <div className={styles.sectionGrid}>
                             <div className={styles.formPanel}>
                                 <Form.List name="users">{(fields, {add, remove}) => <div className={styles.listEditor}><div className={styles.editorToolbar}><Typography.Title level={5}>用户列表</Typography.Title><Button icon={<PlusOutlined />} onClick={() => add({username: '', displayName: '', quotaGb: current.storage.defaultUserQuotaGb, enabled: true, homeDir: ''})}>新增用户</Button></div>{fields.map((field) => <Card key={field.key} size="small" className={styles.editorCard}><div className={styles.editorHeader}><Typography.Text strong>用户 {field.name + 1}</Typography.Text><Button danger type="text" icon={<DeleteOutlined />} onClick={() => remove(field.name)}>删除</Button></div><Row gutter={16}><Col xs={24} md={6}><Form.Item label="用户名" name={[field.name, 'username']} rules={[{required: true, message: '请输入用户名'}]}><Input /></Form.Item></Col><Col xs={24} md={6}><Form.Item label="显示名" name={[field.name, 'displayName']} rules={[{required: true, message: '请输入显示名'}]}><Input /></Form.Item></Col><Col xs={24} md={6}><Form.Item label="HomeDir" name={[field.name, 'homeDir']} rules={[{required: true, message: '请输入 homeDir'}]}><Input /></Form.Item></Col><Col xs={24} md={3}><Form.Item label="配额 (GB)" name={[field.name, 'quotaGb']}><InputNumber min={0.001} style={{width: '100%'}} /></Form.Item></Col><Col xs={24} md={3}><Form.Item label="启用" name={[field.name, 'enabled']} valuePropName="checked"><Switch /></Form.Item></Col></Row></Card>)}</div>}</Form.List>
                             </div>
                             <div className={styles.sidePanel}><Card size="small" className={styles.sideCard}><Typography.Title level={5}>超额用户提醒</Typography.Title>{status?.storage?.overQuotaUsers?.length ? <List size="small" dataSource={status.storage.overQuotaUsers} renderItem={(item) => <List.Item><div className={styles.snapshotRow}><div><Typography.Text strong>{item.displayName}</Typography.Text><Typography.Paragraph className={styles.mutedText}>{item.username}</Typography.Paragraph></div><Tag color="orange">{item.percent ? `${item.percent.toFixed(1)}%` : '超额'}</Tag></div></List.Item>} /> : <Empty description="当前没有超额用户" image={Empty.PRESENTED_IMAGE_SIMPLE} />}</Card></div>
                         </div>
-                    </SectionCard>
-                    <SectionCard title="备份与迁移" subtitle="整站快照、用户导出和导入演练统一收口在这里，便于迁移前后核验。" summary={[<SummaryTag key="b">{backups.length} 条快照</SummaryTag>, <SummaryTag key="c" color="blue">{current.backup.compression}</SummaryTag>]} collapsed={panels.state.backup} onToggle={() => panels.toggle('backup')} actions={<Button type="primary" icon={<ReloadOutlined />} loading={backupRunning} onClick={() => void createBackup()}>创建整站快照</Button>}>
+                    </SectionCard> : null}
+                    {activeSection === 'backup' ? <SectionCard title="备份与迁移" subtitle="整站快照、用户导出和导入演练统一收口在这里，便于迁移前后核验。" summary={[<SummaryTag key="b">{backups.length} 条快照</SummaryTag>, <SummaryTag key="c" color="blue">{current.backup.compression}</SummaryTag>]} collapsed={panels.state.backup} onToggle={() => panels.toggle('backup')} actions={<Button type="primary" icon={<ReloadOutlined />} loading={backupRunning} onClick={() => void createBackup()}>创建整站快照</Button>}>
                         <div className={styles.sectionGrid}>
                             <div className={styles.formPanel}>
                                 <Row gutter={16}>
@@ -241,8 +325,8 @@ export default function AdminPage() {
                             </div>
                             <div className={styles.sidePanel}><Card size="small" className={styles.sideCard}><Typography.Title level={5}>最近快照</Typography.Title>{backups.length ? <List size="small" dataSource={backups.slice(0, 5)} renderItem={(item) => <List.Item><div className={styles.snapshotRow}><div><Typography.Text strong>{item.snapshotId}</Typography.Text><Typography.Paragraph className={styles.mutedText}>{item.kind === 'site' ? '整站快照' : '用户导出'} · {formatDate(item.createdAt)}</Typography.Paragraph></div><Tag color={item.status === 'verified' ? 'green' : 'blue'}>{item.status}</Tag></div></List.Item>} /> : <Empty description="暂无备份记录" image={Empty.PRESENTED_IMAGE_SIMPLE} />}</Card></div>
                         </div>
-                    </SectionCard>
-                    <SectionCard title="系统配置与告警" subtitle="维护产品文案、认证和 tunnel 参数，并集中查看依赖状态、运行告警与操作日志。" summary={[<SummaryTag key="db" color={status?.database?.connected ? 'green' : 'red'}>{status?.database?.connected ? '数据库正常' : '数据库异常'}</SummaryTag>, <SummaryTag key="ng" color={status?.ngrok?.connected ? 'green' : 'default'}>{status?.ngrok?.connected ? '隧道在线' : '隧道未连接'}</SummaryTag>, <SummaryTag key="ev">{events.length} 条事件</SummaryTag>]} collapsed={panels.state.system} onToggle={() => panels.toggle('system')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
+                    </SectionCard> : null}
+                    {activeSection === 'system' ? <SectionCard title="系统配置与告警" subtitle="维护产品文案、认证和 tunnel 参数，并集中查看依赖状态、运行告警与操作日志。" summary={[<SummaryTag key="db" color={status?.database?.connected ? 'green' : 'red'}>{status?.database?.connected ? '数据库正常' : '数据库异常'}</SummaryTag>, <SummaryTag key="ng" color={status?.ngrok?.connected ? 'green' : 'default'}>{status?.ngrok?.connected ? '隧道在线' : '隧道未连接'}</SummaryTag>, <SummaryTag key="ev">{events.length} 条事件</SummaryTag>]} collapsed={panels.state.system} onToggle={() => panels.toggle('system')} actions={<Button icon={<SaveOutlined />} loading={saving} onClick={() => void saveConfig()}>保存本区</Button>}>
                         <div className={styles.systemGrid}>
                             <div className={styles.formPanel}>
                                 <Card size="small" className={styles.sideCard}>
@@ -285,12 +369,13 @@ export default function AdminPage() {
                                 </Card>
                             </div>
                             <div className={styles.sidePanel}>
-                                <Card size="small" className={styles.sideCard}><Typography.Title level={5}>依赖与告警</Typography.Title><Space wrap size={[8, 8]}><Tag color={status?.database?.connected ? 'green' : 'red'}>{status?.database?.connected ? '数据库已连接' : '数据库未连接'}</Tag><Tag color={status?.dependencies?.soffice ? 'green' : 'default'}>{status?.dependencies?.soffice ? 'LibreOffice 就绪' : 'LibreOffice 未安装'}</Tag><Tag color={status?.dependencies?.purePw ? 'green' : 'default'}>{status?.dependencies?.purePw ? 'pure-pw 就绪' : 'pure-pw 未启用'}</Tag></Space>{status?.storage?.warningTriggered ? <Alert showIcon type="warning" message="可用容量已接近告警阈值" description={`当前阈值 ${status.storage.warningThresholdPercent ?? current.storage.warningThresholdPercent}%`} style={{marginTop: 16}} /> : null}</Card>
+                                <Card size="small" className={styles.sideCard}><Typography.Title level={5}>依赖与告警</Typography.Title><Space wrap size={[8, 8]}><Tag color={status?.database?.connected ? 'green' : 'red'}>{status?.database?.connected ? '数据库已连接' : '数据库未连接'}</Tag><Tag color={status?.dependencies?.purePw ? 'green' : 'default'}>{status?.dependencies?.purePw ? 'pure-pw 就绪' : 'pure-pw 未启用'}</Tag></Space>{status?.storage?.warningTriggered ? <Alert showIcon type="warning" message="可用容量已接近告警阈值" description={`当前阈值 ${status.storage.warningThresholdPercent ?? current.storage.warningThresholdPercent}%`} style={{marginTop: 16}} /> : null}</Card>
                                 <Card size="small" className={styles.sideCard}><Typography.Title level={5}>操作事件</Typography.Title>{events.length ? <List size="small" dataSource={events.slice(0, 8)} renderItem={(event) => <List.Item><div className={styles.eventRow}><Tag color={event.level === 'error' ? 'red' : event.level === 'warn' ? 'orange' : 'blue'}>{event.level}</Tag><Typography.Text>{event.message}</Typography.Text><Typography.Text type="secondary">{formatDate(event.created_at)}</Typography.Text></div></List.Item>} /> : <Empty description="暂无事件" image={Empty.PRESENTED_IMAGE_SIMPLE} />}</Card>
                                 <Card size="small" className={styles.sideCard}><Typography.Title level={5}>日志窗口</Typography.Title><div className={styles.logPanel}>{logs.length ? logs.join('\n') : '暂无日志输出'}</div></Card>
                             </div>
                         </div>
-                    </SectionCard>
+                    </SectionCard> : null}
+                    </div>
                 </div>
             </Form>
         </div>

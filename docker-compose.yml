@@ -34,7 +34,6 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./config:/app/config
-      - ./cache-office:/app/cache-office
       - ./storage:/www/wwwroot
     depends_on:
       - postgres

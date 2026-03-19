@@ -1,4 +1,5 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
 import AdminPage from './AdminPage';
 
 vi.mock('../../../app/providers/AppConfigProvider', () => ({
@@ -74,7 +75,7 @@ vi.mock('../../../lib/api/client', () => ({
                         overQuotaUsers: [],
                     },
                     database: {connected: true},
-                    dependencies: {soffice: true, purePw: false},
+                    dependencies: {purePw: false},
                     ngrok: {connected: false, publicUrl: ''},
                 });
             }
@@ -92,19 +93,32 @@ vi.mock('../../../lib/api/client', () => ({
 }));
 
 describe('AdminPage', () => {
-    it('renders section headers and keeps title visible after collapse', async () => {
-        render(<AdminPage />);
+    it('renders module sidebar and switches sections as routes change', async () => {
+        render(
+            <MemoryRouter initialEntries={['/admin/cluster']}>
+                <AdminPage />
+            </MemoryRouter>
+        );
 
         await waitFor(() => {
-            expect(screen.getByText('\u96c6\u7fa4\u4e0e\u7f51\u5173')).toBeInTheDocument();
-            expect(screen.getByText('\u5bb9\u91cf\u4e0e\u914d\u989d')).toBeInTheDocument();
-            expect(screen.getByText('\u7528\u6237\u4e0e\u7a7a\u95f4\u5206\u914d')).toBeInTheDocument();
-            expect(screen.getByText('\u7cfb\u7edf\u914d\u7f6e\u4e0e\u544a\u8b66')).toBeInTheDocument();
+            expect(screen.getByRole('heading', {name: '\u96c6\u7fa4\u4e0e\u7f51\u5173'})).toBeInTheDocument();
+            expect(screen.getByText('后台模块')).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByRole('button', {name: /容量与配额/}));
+
+        await waitFor(() => {
+            expect(screen.getByRole('heading', {name: '\u5bb9\u91cf\u4e0e\u914d\u989d'})).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByRole('button', {name: /集群与网关/}));
+
+        await waitFor(() => {
+            expect(screen.getByRole('heading', {name: '\u96c6\u7fa4\u4e0e\u7f51\u5173'})).toBeInTheDocument();
         });
 
         fireEvent.click(screen.getAllByRole('button', {name: /\u6536\u8d77/})[0]);
-
-        expect(screen.getByText('\u96c6\u7fa4\u4e0e\u7f51\u5173')).toBeInTheDocument();
+        expect(screen.getByRole('heading', {name: '\u96c6\u7fa4\u4e0e\u7f51\u5173'})).toBeInTheDocument();
         expect(screen.getByText('\u914d\u7f6e\u7248\u672c abcdef12')).toBeInTheDocument();
     });
 });

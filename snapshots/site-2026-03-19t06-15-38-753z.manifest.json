@@ -1,0 +1,20 @@
+{
+  "snapshotId": "site-2026-03-19t06-15-38-753z",
+  "kind": "site",
+  "createdAt": "2026-03-19T06:15:38.768Z",
+  "configVersion": "43e997073ea52335e387a016739d61b897413a9f",
+  "nodes": [
+    {
+      "id": "node-local",
+      "baseUrl": "http://localhost:3000",
+      "lastHeartbeat": "2026-03-19T06:15:38.752Z"
+    }
+  ],
+  "storage": {
+    "rootDir": "C:\\Users\\WEBRAI~1\\AppData\\Local\\Temp\\magus-backup-test-7kRYxA\\storage",
+    "totalCapacityBytes": 536870912000,
+    "reserveFreeBytes": 21474836480,
+    "usedBytes": 12
+  },
+  "checksum": "fb3dc593a703c7253bfba02bbb9d07a153e9ba923f7e5de1840b3a4808cf5672"
+}

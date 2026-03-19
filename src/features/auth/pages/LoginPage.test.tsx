@@ -53,13 +53,13 @@ describe('LoginPage', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('Magus Cloud')).toBeInTheDocument();
-            expect(screen.getByRole('heading', {name: /让团队资料/})).toBeInTheDocument();
-            expect(screen.getByRole('button', {name: '去登录'})).toBeInTheDocument();
+            expect(screen.getAllByText('Magus Cloud').length).toBeGreaterThan(0);
+            expect(screen.getByRole('heading', {name: 'Magus Cloud'})).toBeInTheDocument();
+            expect(screen.getByRole('button', {name: '开始使用'})).toBeInTheDocument();
             expect(screen.getByRole('button', {name: '打开用户帮助文档'})).toBeInTheDocument();
         });
 
-        fireEvent.click(screen.getByRole('button', {name: '去登录'}));
+        fireEvent.click(screen.getByRole('button', {name: '开始使用'}));
 
         await waitFor(() => {
             expect(screen.getByRole('button', {name: /使用飞书登录/})).toBeInTheDocument();
