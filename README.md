@@ -1,39 +1,54 @@
 # Magus Cloud
 
-面向团队共享存储场景的轻量云盘控制台。
+Magus Cloud 是一个面向团队内部文件管理与共享场景的私有化文件服务系统，提供用户登录、文件上传下载、目录管理、在线预览、文件分享、管理员配置维护、健康检查、备份与用户迁移等能力。
 
-本项目采用“用户端像网盘产品、管理员端像运维控制台”的分层体验：用户在 `/dashboard` 完成上传、预览、分享和文件管理，管理员在 `/admin` 维护节点、容量、备份与服务配置。
+## 已实现能力
 
-## Preview
+- 管理员登录与飞书登录
+- 文件列表查询、文件上传、文件夹上传、目录创建、文件删除、文件下载
+- 文本、图片、PDF、Word、Excel、PowerPoint 文件预览
+- 文件分享创建、分享列表查询、公开分享访问、分享删除
+- 管理后台系统设置、服务配置、云配置维护
+- 健康检查、网关检查、存储状态检查、节点状态查看
+- 站点快照备份、用户导出、用户导入
+- 内置用户手册与管理员手册
 
-![登录页](docs/assets/login-screen.png)
-![文件工作台](docs/assets/dashboard-screen.png)
-![管理员后台](docs/assets/admin-screen.png)
-![帮助抽屉](docs/assets/help-drawer.png)
+## 技术栈
 
-## Highlights
+- 前端：React 19、TypeScript、Vite、Ant Design
+- 后端：Node.js、Express 5、TypeScript
+- 元数据存储：PostgreSQL
+- 文件存储：共享目录
+- 自动化测试：Vitest、Testing Library、Playwright、运维检查脚本
+- 部署方式：Docker、Docker Compose
 
-- 首页采用接近百度网盘官网的极简首屏：左侧文案、右侧主视觉、一个“去登录”按钮。
-- 用户端使用双侧栏工作台结构，保留上传、分享、预览、搜索和新建文件夹能力。
-- 管理员端采用矩阵化运维控制台，集中展示集群与网关、容量与配额、用户分配、备份迁移、系统配置与告警。
-- 主配置统一写入 `config/magus.config.json`，兼容读取旧的 `config/cloud.config.json`。
-- 帮助系统内置在产品右上角，可直接查看用户文档与管理员文档。
+## 快速启动
 
-## Quick Start
-
-### 1. Install
+### 本地运行
 
 ```bash
 npm install
+copy .env.example .env
+npm run build
+npm run build:server
+node server-dist/index.js
 ```
 
-### 2. Configure
+默认访问地址：
+
+```text
+http://localhost:3000
+```
+
+### Docker Compose
 
 ```bash
-cp .env.example .env
+docker compose up -d --build
 ```
 
-关键环境变量：
+## 关键配置
+
+### 环境变量
 
 - `MAGUS_DATABASE_URL`
 - `MAGUS_ADMIN_USERNAME`
@@ -45,94 +60,30 @@ cp .env.example .env
 - `FEISHU_APP_SECRET`
 - `NGROK_AUTHTOKEN`
 
-### 3. Main Config
+### 配置文件
 
-主配置文件为 [`config/magus.config.json`](config/magus.config.json)。
+- `config/magus.config.json`
+- `config/cloud.config.json`
 
-主要结构：
-
-- `cluster`
-- `storage`
-- `users`
-- `backup`
-- `ui`
-- `auth`
-- `feishu`
-- `ngrok`
-
-说明：
-
-- 服务启动时优先读取 `magus.config.json`
-- 如不存在，则读取旧的 `cloud.config.json` 并自动迁移
-- 后台保存统一回写 `magus.config.json`
-- 密钥类字段仍只来自环境变量
-
-### 4. Run
+## 测试命令
 
 ```bash
-npm run build
-npm run build:server
-npm run start
-```
-
-默认访问地址：
-
-```text
-http://localhost:3000
-```
-
-## Homepage Login Flow
-
-首页 `/` 采用极简首屏：
-
-- 左侧为品牌标题和简短说明
-- 右侧为单张主视觉图
-- 首屏只保留一个“去登录”按钮
-
-点击“去登录”后会打开登录层：
-
-- 主入口为“使用飞书登录”
-- 管理员应急登录位于折叠区
-
-## Docker Compose
-
-仓库中的 [`docker-compose.yml`](docker-compose.yml) 已切换到主配置文件模式：
-
-- `MAGUS_SERVICE_CONFIG=/app/config/magus.config.json`
-- `MAGUS_CLOUD_CONFIG=/app/config/cloud.config.json`
-
-启动：
-
-```bash
-docker compose up -d --build
-```
-
-## Public APIs
-
-- `GET /api/admin/service-config`
-- `PUT /api/admin/service-config`
-- `GET /api/admin/cloud-config`
-
-- `PUT /api/admin/cloud-config`
-- `GET /api/usage`
-- `POST /api/create-folder`
-
-## Documentation
-
-- 用户文档：[docs/user-guide.md](docs/user-guide.md)
-- 管理员文档：[docs/admin-guide.md](docs/admin-guide.md)
-
-帮助入口位于：
-
-- 首页右上角 `?`
-- 用户工作台右上角 `?`
-- 管理员后台右上角 `?`
-
-## Test
-
-```bash
-npm run build
-npm run build:server
 npm test
 npm run test:e2e
+npm run ops:health
+npm run ops:gateway
+npm run ops:storage
+npm run ops:backup
+npm run ops:nodes
+npm run ops:user-export
+npm run ops:help -- --audience admin
 ```
+
+## 交付入口
+
+- [交付包说明](delivery/README_DELIVERY.md)
+- [交付物清单](delivery/DELIVERY_LIST.md)
+
+## 许可证
+
+本项目采用 MIT License，详见 [LICENSE](LICENSE)。
